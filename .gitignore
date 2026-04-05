@@ -1,0 +1,36 @@
+# Private keys and secrets
+.env
+.env.local
+.env.production
+.env.example
+
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Hardhat
+cache/
+artifacts/
+typechain-types/
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel/
+
+# Local configs
+deployments.json
+
+# Claude Code
+.claude/
