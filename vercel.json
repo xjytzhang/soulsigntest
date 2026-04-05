@@ -1,4 +1,13 @@
 {
+  "rewrites": [
+    { "source": "/", "destination": "/index/code.html" },
+    { "source": "/sign", "destination": "/sign/code.html" },
+    { "source": "/sign/", "destination": "/sign/code.html" },
+    { "source": "/mint", "destination": "/mint/code.html" },
+    { "source": "/mint/", "destination": "/mint/code.html" },
+    { "source": "/setting", "destination": "/setting/code.html" },
+    { "source": "/setting/", "destination": "/setting/code.html" }
+  ],
   "crons": [
     {
       "path": "/api/check72h",
