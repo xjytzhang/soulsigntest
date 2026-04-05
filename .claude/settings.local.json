@@ -19,7 +19,8 @@
       "Bash(node --check /Users/zerozhang/Downloads/stitch/sign/code.html)",
       "Bash(npm install:*)",
       "Bash(npx hardhat:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "WebFetch(domain:vercel.com)"
     ]
   }
 }
