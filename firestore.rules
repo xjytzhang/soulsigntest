@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 用户数据：只有自己的钱包地址才能读写自己的数据
+    match /users/{wallet} {
+      allow read: if true;  // 公开读取（显示签到排名等）
+      allow write: if request.auth != null && request.auth.token.wallet == wallet;
+    }
+
+    // 签到日志：公开读取
+    match /checkin_logs/{logId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+  }
+}
