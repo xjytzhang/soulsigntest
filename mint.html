@@ -279,6 +279,11 @@
         return;
       }
 
+      if (!contract) {
+        setMintStatus('Wallet not connected to contract. Please click the wallet button above.', 'error');
+        return;
+      }
+
       if (username.length < 3 || username.length > 12) {
         setMintStatus('Username must be 3-12 characters', 'error');
         return;
@@ -401,20 +406,42 @@
         if (accounts.length > 0) {
           connectWallet();
         } else {
-          // 从 localStorage 恢复地址并显示
+          // 从 localStorage 恢复并尝试初始化合约
           const saved = localStorage.getItem(STORAGE_KEY);
           if (saved) {
             currentAccount = saved;
             updateWalletUI();
+            restoreContract(saved);
           }
         }
       }).catch(() => {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) { currentAccount = saved; updateWalletUI(); }
+        if (saved) { currentAccount = saved; updateWalletUI(); restoreContract(saved); }
       });
     } else {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) { currentAccount = saved; updateWalletUI(); }
+    }
+
+    // 从已连接的 provider 恢复合约
+    async function restoreContract(savedAddress) {
+      if (typeof ethers === 'undefined' || !savedAddress) return;
+      try {
+        const prov = new ethers.BrowserProvider(window.ethereum);
+        const sig = await prov.getSigner();
+        const addr = await sig.getAddress();
+        if (addr.toLowerCase() === savedAddress.toLowerCase()) {
+          contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
+          // 检查是否已 mint
+          await checkIfMinted();
+        }
+      } catch (err) {
+        console.error('[SoulSign] Restore contract error:', err);
+        // 合约没初始化，显示提示
+        if (mintStatus) {
+          setMintStatus('Click the wallet button above to reconnect your wallet.', 'error');
+        }
+      }
     }
 
     // 按钮事件
