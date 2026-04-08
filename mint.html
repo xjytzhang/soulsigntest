@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SoulSign | Mint Your Digital Sanctuary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#1a1c1e",
+              "surface-bright": "#22252a",
+              "secondary-fixed-dim": "#3ce36a",
+              "on-tertiary-fixed": "#2b1700",
+              "secondary-fixed": "#69ff87",
+              "on-tertiary-container": "#804e00",
+              "surface-container-lowest": "#05070a",
+              "tertiary-container": "#ffc687",
+              "surface-dim": "#0a0c10",
+              "on-secondary-fixed-variant": "#00531e",
+              "secondary-container": "#02c953",
+              "on-secondary": "#003912",
+              "error": "#ffb4ab",
+              "surface-container": "#12161b",
+              "secondary": "#40e56c",
+              "primary-fixed-dim": "#00daf3",
+              "on-secondary-fixed": "#002108",
+              "error-container": "#93000a",
+              "on-tertiary-fixed-variant": "#673d00",
+              "on-error": "#690005",
+              "surface": "#0a0c10",
+              "on-tertiary": "#482900",
+              "inverse-on-surface": "#2d3137",
+              "surface-container-highest": "#1c2026",
+              "on-surface": "#dfe2eb",
+              "primary-fixed": "#9cf0ff",
+              "surface-container-low": "#0d1117",
+              "on-surface-variant": "#bac9cc",
+              "surface-container-high": "#161a1f",
+              "on-primary-fixed": "#001f24",
+              "outline": "#849396",
+              "inverse-surface": "#dfe2eb",
+              "tertiary-fixed-dim": "#ffb866",
+              "on-error-container": "#ffdad6",
+              "on-primary-fixed-variant": "#004f58",
+              "on-primary-container": "#00626e",
+              "on-background": "#dfe2eb",
+              "inverse-primary": "#006875",
+              "on-primary": "#00363d",
+              "primary-container": "#00e5ff",
+              "surface-tint": "#00daf3",
+              "outline-variant": "#3b494c",
+              "tertiary-fixed": "#ffddba",
+              "tertiary": "#ffe9d5",
+              "primary": "#c3f5ff",
+              "background": "#05070a",
+              "on-secondary-container": "#004d1b"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            animation: {
+              'float': 'float 20s infinite linear',
+              'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'star-twinkle': 'twinkle 4s ease-in-out infinite',
+              'nebula-drift': 'nebula 30s ease-in-out infinite',
+              'card-float': 'cardFloat 6s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+                '33%': { transform: 'translate(5%, -5%) scale(1.05)' },
+                '66%': { transform: 'translate(-3%, 5%) scale(0.95)' },
+              },
+              cardFloat: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+              twinkle: {
+                '0%, 100%': { opacity: 0.3, transform: 'scale(1)' },
+                '50%': { opacity: 1, transform: 'scale(1.2)' },
+              },
+              nebula: {
+                '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+                '50%': { transform: 'scale(1.1) rotate(2deg)' },
+              }
+            }
+          },
+        },
+      }
+    </script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+<script type="module">
+    // ============================================
+    // SoulSign Mint 合约交互
+    // ============================================
+
+    // 合约地址（部署后填写）
+    const CONTRACT_ADDRESS = '0xCf5377314489E554Ac11810542070EE54d2C4894';
+    // Base Sepolia Chain ID
+    const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532 in hex
+    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+
+    // 合约 ABI（只包含我们用到的方法）
+    const SOULSIGN_ABI = [
+      "function mintSoulNFT(string calldata tokenURI_) external payable",
+      "function hasSoulNFT(address _user) external view returns (bool)",
+      "function hasSoulNFT() external view returns (bool)",
+      "function checkIn() external",
+      "function setEmergencyContact(string calldata _name, string calldata _email) external",
+      "function getLastCheckIn(address _user) external view returns (uint256)",
+      "function getEmergencyContact(address _user) external view returns (string memory, string memory)",
+      "event SoulMinted(address indexed user, uint256 tokenId)",
+      "event CheckedIn(address indexed user, uint256 timestamp)",
+      "event EmergencyContactSet(address indexed user, string email, string name)"
+    ];
+
+    // Firebase API 地址（部署后填写）
+    const API_BASE = 'https://soulsigntest.vercel.app';
+
+    // UI 元素
+    const walletBtn = document.getElementById('wallet-btn');
+    const walletAddress = document.getElementById('wallet-address');
+    const walletStatus = document.getElementById('wallet-status');
+    const usernameInput = document.getElementById('username-input');
+    const guardianEmailInput = document.getElementById('guardian-email');
+    const mintBtn = document.getElementById('mint-btn');
+    const mintStatus = document.getElementById('mint-status');
+    const mintFeeDisplay = document.getElementById('mint-fee');
+
+    let currentAccount = null;
+    let provider = null;
+    let signer = null;
+    let contract = null;
+
+    // ============================================
+    // 钱包连接
+    // ============================================
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert('Please install MetaMask or a compatible wallet first.');
+        return;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        currentAccount = accounts[0];
+
+        // 检查是否是 Base Sepolia 网络
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
+            });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: BASE_SEPOLIA_CHAIN_ID,
+                  chainName: 'Base Sepolia',
+                  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                  rpcUrls: [BASE_SEPOLIA_RPC],
+                  blockExplorerUrls: ['https://sepolia.basescan.org'],
+                }],
+              });
+            }
+          }
+        }
+
+        // 初始化 ethers.js
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+
+        updateWalletUI();
+        await checkIfMinted();
+
+      } catch (err) {
+        console.error('Wallet connection error:', err);
+        setMintStatus(err.message || 'Failed to connect wallet', 'error');
+      }
+    }
+
+    // 监听账户切换
+    window.ethereum.on('accountsChanged', async (accounts) => {
+      if (accounts.length === 0) {
+        disconnectWallet();
+      } else {
+        currentAccount = accounts[0];
+        await connectWallet();
+      }
+    });
+
+    window.ethereum.on('chainChanged', () => {
+      window.location.reload();
+    });
+
+    function disconnectWallet() {
+      currentAccount = null;
+      provider = null;
+      signer = null;
+      contract = null;
+      updateWalletUI();
+    }
+
+    function updateWalletUI() {
+      if (currentAccount) {
+        if (walletAddress) walletAddress.textContent = truncateAddress(currentAccount);
+        // Update the address span inside wallet button
+        const addressSpan = walletBtn ? walletBtn.querySelector('.font-mono') : null;
+        if (addressSpan) addressSpan.textContent = truncateAddress(currentAccount);
+        if (walletBtn) walletBtn.classList.add('text-secondary');
+      } else {
+        if (walletBtn) { walletBtn.classList.remove('text-secondary'); walletBtn.classList.add('text-white/50'); }
+      }
+    }
+
+    function truncateAddress(addr) {
+      if (!addr) return '';
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    // ============================================
+    // 检查是否已 Mint
+    // ============================================
+    async function checkIfMinted() {
+      if (!contract || !currentAccount) return;
+
+      try {
+        const hasMinted = await contract.hasSoulNFT(currentAccount);
+        if (hasMinted) {
+          if (mintBtn) { mintBtn.disabled = true; mintBtn.classList.add('opacity-50', 'cursor-not-allowed'); }
+          const btnText = document.getElementById('mint-btn-text');
+          if (btnText) btnText.innerHTML = 'Already Minted';
+          setMintStatus('Soul NFT already minted! Redirecting to Sign...', 'success');
+          setTimeout(() => {
+            window.location.href = '../sign/code.html';
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Check mint error:', err);
+      }
+    }
+
+    // ============================================
+    // Mint NFT
+    // ============================================
+    async function mintNFT() {
+      const username = usernameInput.value.trim();
+      const guardianEmail = guardianEmailInput.value.trim();
+
+      if (!currentAccount) {
+        setMintStatus('Please connect your wallet first', 'error');
+        return;
+      }
+
+      if (username.length < 3 || username.length > 12) {
+        setMintStatus('Username must be 3-12 characters', 'error');
+        return;
+      }
+
+      if (!guardianEmail || !guardianEmail.includes('@')) {
+        setMintStatus('Please enter a valid guardian email', 'error');
+        return;
+      }
+
+      try {
+        if (mintBtn) mintBtn.disabled = true;
+        const btnText = document.getElementById('mint-btn-text');
+        if (btnText) btnText.textContent = 'Minting...';
+        setMintStatus('Transaction submitted. Please wait...', 'info');
+
+        // 调用合约 mintSoulNFT()
+        const tokenURI = 'ipfs://bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
+        const tx = await contract.mintSoulNFT(tokenURI);
+        setMintStatus('Waiting for confirmation...', 'info');
+
+        const receipt = await tx.wait();
+        console.log('Mint transaction:', receipt);
+
+        // 获取 tokenId 从事件中
+        const soulMintedEvent = receipt.logs.find(log => {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            return parsed?.name === 'SoulMinted';
+          } catch { return false; }
+        });
+
+        const tokenId = soulMintedEvent
+          ? contract.interface.parseLog(soulMintedEvent).args.tokenId.toString()
+          : 'unknown';
+
+        setMintStatus(`Soul NFT minted! Token #${tokenId}`, 'success');
+
+        // 保存到 Firebase
+        await fetch(`${API_BASE}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet: currentAccount,
+            txHash: receipt.hash,
+            chainId: 84532,
+          }),
+        }).catch(err => console.error('Firebase register error:', err));
+
+        // 设置紧急联系人到合约
+        try {
+          setMintStatus('Setting emergency contact...', 'info');
+          await contract.setEmergencyContact(username, guardianEmail);
+        } catch (e) {
+          console.error('Set emergency contact error:', e);
+        }
+
+        // 也保存到 Firebase
+        await fetch(`${API_BASE}/api/setEmergencyContact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet: currentAccount,
+            name: username,
+            email: guardianEmail,
+          }),
+        }).catch(err => console.error('Firebase emergency contact error:', err));
+
+        setMintStatus('Welcome to SoulSign! Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = '../sign/code.html';
+        }, 2000);
+
+      } catch (err) {
+        console.error('Mint error:', err);
+        if (mintBtn) mintBtn.disabled = false;
+        const btnText = document.getElementById('mint-btn-text');
+        if (btnText) btnText.innerHTML = '<span class="material-symbols-outlined" data-icon="token" style="font-variation-settings:\'FILL\' 1;">token</span> Mint Your Soul NFT';
+
+        if (err.code === 4001 || err.message?.includes('user rejected')) {
+          setMintStatus('Transaction rejected by user', 'error');
+        } else {
+          setMintStatus(err.message || 'Minting failed', 'error');
+        }
+      }
+    }
+
+    function setMintStatus(msg, type) {
+      if (!mintStatus) return;
+      mintStatus.textContent = msg;
+      mintStatus.className = 'text-sm font-headline text-center';
+      if (type === 'error') mintStatus.classList.add('text-error');
+      else if (type === 'success') mintStatus.classList.add('text-secondary');
+      else mintStatus.classList.add('text-on-surface-variant');
+    }
+
+    // ============================================
+    // 初始化
+    // ============================================
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length > 0) {
+        currentAccount = accounts[0];
+        updateWalletUI();
+      } else {
+        disconnectWallet();
+      }
+    });
+
+    // 检查是否已连接
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+        if (accounts.length > 0) {
+          connectWallet();
+        }
+      });
+    }
+
+    // 按钮事件
+    if (mintBtn) {
+      mintBtn.addEventListener('click', mintNFT);
+    }
+    if (walletBtn) {
+      walletBtn.addEventListener('click', () => {
+        if (currentAccount) {
+          connectWallet();
+        } else {
+          connectWallet();
+        }
+      });
+    }
+    const mintDisconnectBtn = document.getElementById('mint-disconnect-btn');
+    if (mintDisconnectBtn) {
+      mintDisconnectBtn.addEventListener('click', disconnectWallet);
+    }
+</script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #05070a; color: #dfe2eb; }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        .bg-space-void {
+            background: radial-gradient(circle at 50% 50%, #0d1b2a 0%, #05070a 100%);
+        }
+
+        .nebula-glow {
+            background: radial-gradient(circle at center, rgba(0, 229, 255, 0.05) 0%, transparent 70%);
+            filter: blur(80px);
+        }
+
+        .starfield-layer-1 {
+            background-image: radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(1.5px 1.5px at 140px 170px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(1px 1px at 250px 40px, #00e5ff, rgba(0,0,0,0));
+            background-size: 300px 300px;
+        }
+
+        .starfield-layer-2 {
+            background-image: radial-gradient(1px 1px at 80px 120px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(1px 1px at 280px 240px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(2px 2px at 150px 80px, #00e5ff, rgba(0,0,0,0));
+            background-size: 400px 400px;
+        }
+
+        .constellation-grid {
+            background-image: 
+                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+            background-size: 100px 100px;
+            mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .nft-preview-glow {
+            box-shadow: 0 0 80px rgba(0, 229, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="min-h-screen selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden bg-space-void">
+<!-- Immersive Starry Background -->
+<div class="fixed inset-0 pointer-events-none -z-20 overflow-hidden">
+<!-- Deep Space Nebula -->
+<div class="absolute top-1/4 -left-1/4 w-[80%] h-[80%] nebula-glow animate-nebula-drift"></div>
+<div class="absolute bottom-1/4 -right-1/4 w-[70%] h-[70%] nebula-glow animate-nebula-drift" style="animation-delay: -10s; opacity: 0.6;"></div>
+<!-- Stars -->
+<div class="absolute inset-0 starfield-layer-1 opacity-40 animate-star-twinkle"></div>
+<div class="absolute inset-0 starfield-layer-2 opacity-30 animate-star-twinkle" style="animation-delay: -2s;"></div>
+<!-- Constellation Web -->
+<div class="absolute inset-0 constellation-grid opacity-20"></div>
+</div>
+<!-- Header -->
+<header class="bg-transparent fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6">
+<div class="flex flex-col">
+<span class="text-2xl font-bold font-headline tracking-tighter text-white">SoulSign</span>
+<span class="text-[10px] uppercase tracking-[0.3em] text-primary/60 font-headline font-medium">Digital Life Guardian</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="group relative">
+<button id="wallet-btn" class="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/10 transition-all duration-300">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span id="wallet-address" class="text-sm font-mono text-secondary">0x...f42c</span>
+<span class="material-symbols-outlined text-lg opacity-40 group-hover:rotate-180 transition-transform duration-300">expand_more</span>
+</button>
+<!-- Hidden Navigation Dropdown (Disabled - non-NFT users) -->
+<div class="absolute top-full right-0 mt-3 w-56 bg-surface-container-high/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60] py-3 overflow-hidden translate-y-2 group-hover:translate-y-0">
+<div class="px-5 py-3 text-on-surface-variant/50 font-headline text-xs">Mint NFT to unlock access</div>
+<div class="h-px bg-white/5 my-2"></div>
+<button class="w-full flex items-center gap-4 px-5 py-3 text-on-surface-variant/40 cursor-not-allowed font-headline" disabled>
+<span class="material-symbols-outlined text-xl">favorite</span>
+<span>Sign</span>
+</button>
+<button class="w-full flex items-center gap-4 px-5 py-3 text-on-surface-variant/40 cursor-not-allowed font-headline" disabled>
+<span class="material-symbols-outlined text-xl">settings</span>
+<span>Settings</span>
+</button>
+<div class="h-px bg-white/5 my-2"></div>
+<button class="w-full flex items-center gap-4 px-5 py-3 hover:bg-error/10 text-on-surface hover:text-error transition-colors font-headline" id="mint-disconnect-btn">
+<span class="material-symbols-outlined text-xl">logout</span>
+<span>Disconnect</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="relative flex flex-col items-center justify-center pt-32 pb-24 px-6 max-w-7xl mx-auto min-h-screen">
+<div class="grid lg:grid-cols-12 gap-16 items-center w-full relative z-10">
+<!-- Left Column: Content -->
+<div class="lg:col-span-5 space-y-8">
+<div class="space-y-6">
+<div class="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-primary/10 bg-primary/5 text-primary-fixed text-[11px] tracking-[0.2em] uppercase font-headline backdrop-blur-sm">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-40"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary shadow-[0_0_8px_rgba(64,229,108,0.8)]"></span>
+</span>
+                    Initialization Phase
+                </div>
+<h1 class="text-display-lg font-headline text-5xl lg:text-7xl font-bold leading-tight tracking-tighter text-white">
+                    Secure Your <br/>
+<span class="bg-gradient-to-b from-primary via-primary-container to-primary-container bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(0,229,255,0.2)]">Digital Soul</span>
+</h1>
+<p class="text-lg text-on-surface-variant max-w-md leading-relaxed font-light">
+                    This NFT is your digital identifier on the SoulSign sanctuary. Establish your encrypted recovery bridge across the cosmos.
+                </p>
+</div>
+<div class="flex items-center gap-4 p-6 rounded-3xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="info">info</span>
+<p class="text-sm text-on-surface-variant font-body leading-relaxed">
+                    The Soul NFT binds your wallet to your identity with zero-knowledge encryption protocols.
+                </p>
+</div>
+</div>
+<!-- Right Column: Glassmorphism Minting Card -->
+<div class="lg:col-span-7 flex justify-center lg:justify-end">
+<div class="glass-panel w-full max-w-xl rounded-[3rem] p-8 lg:p-12 shadow-2xl relative overflow-hidden animate-card-float">
+<!-- Subtle Interior Glow -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-primary-container/10 rounded-full blur-3xl"></div>
+<div class="relative z-10 space-y-10">
+<!-- NFT Preview Centerpiece -->
+<div class="flex justify-center">
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-tr from-primary-container to-secondary rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+<div class="relative w-48 h-48 lg:w-64 lg:h-64 rounded-full bg-surface-container-lowest overflow-hidden flex items-center justify-center nft-preview-glow border border-primary/20">
+<div class="absolute inset-0 opacity-40 mix-blend-overlay">
+<div class="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary-container/30 via-transparent to-transparent animate-pulse-slow"></div>
+</div>
+<div class="relative w-32 h-32 lg:w-44 lg:h-44 flex items-center justify-center overflow-hidden rounded-full">
+<video class="w-full h-full object-cover scale-150" src="soulsign.mov" autoplay loop muted playsinline></video>
+</div>
+<!-- Dynamic Data Overlay -->
+<div class="absolute bottom-6 flex flex-col items-center">
+<span class="text-[10px] font-mono text-primary/60 tracking-widest uppercase">Entity Verified</span>
+<div class="h-1 w-8 bg-secondary rounded-full mt-1"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Form Fields -->
+<div class="space-y-6">
+<div class="space-y-2">
+<label class="text-xs font-headline uppercase tracking-[0.2em] text-on-surface-variant px-1 font-medium">Username</label>
+<div class="relative group">
+<input id="username-input" class="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-5 pr-6 text-on-surface focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container transition-all font-body outline-none pl-6 placeholder:text-on-surface-variant/60" placeholder="Username (3-12 characters)" type="text"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-headline uppercase tracking-[0.2em] text-on-surface-variant px-1 font-medium">Emergency Notification Email</label>
+<div class="relative">
+<input id="guardian-email" class="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-5 pr-6 text-on-surface focus:ring-2 focus:ring-primary-container/50 focus:border-primary-container transition-all font-body outline-none pl-6 placeholder:text-on-surface-variant/60" placeholder="Guardian email address" type="email"/>
+</div>
+</div>
+</div>
+<!-- Action Area -->
+<div class="space-y-6 pt-4">
+<button id="mint-btn" class="group relative w-full bg-primary-container hover:bg-primary text-on-primary-container font-headline font-bold text-xl py-6 rounded-full shadow-[0_0_40px_rgba(0,229,255,0.2)] hover:shadow-[0_0_60px_rgba(0,229,255,0.4)] transition-all active:scale-95 duration-300 flex items-center justify-center gap-3 overflow-hidden">
+<span id="mint-btn-text" class="relative z-10 flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="token" style="font-variation-settings: 'FILL' 1;">token</span>
+                                Mint Your Soul NFT
+                            </span>
+<div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+</button>
+<p id="mint-status" class="text-sm font-headline text-center"></p>
+<!-- Gas Estimation Badge -->
+<div class="flex items-center justify-between px-8 py-4 bg-white/[0.03] rounded-2xl border border-white/5 backdrop-blur-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="local_gas_station">local_gas_station</span>
+<span class="text-xs text-on-surface-variant font-headline uppercase tracking-wider font-medium">Mint Fee</span>
+</div>
+<div class="flex items-center gap-2"><span class="text-sm font-mono text-secondary font-bold uppercase tracking-wider">Free</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Stats -->
+<div class="w-full mt-32 border-t border-white/5 pt-12 pb-8 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10 font-headline text-[11px] uppercase tracking-[0.2em] text-white/30">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"></span>
+<span>SoulSign Protocol v2.4.0-OMEGA</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-2 text-secondary/50">
+<span class="material-symbols-outlined text-[14px]">sensors</span>
+            Network Status: Multinode Synchronization Active
+        </span>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-8 pt-4 bg-background/80 backdrop-blur-3xl lg:hidden z-50 border-t border-white/5 shadow-2xl">
+<a class="flex flex-col items-center justify-center text-white/30" href="sign.html">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="font-headline text-[9px] uppercase tracking-widest mt-1">Sign</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/30" href="setting.html">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-headline text-[9px] uppercase tracking-widest mt-1">Setting</span>
+</a>
+</nav>
+</body></html>

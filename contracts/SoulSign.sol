@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -54,12 +55,13 @@ contract SoulSign is ERC721, ERC721URIStorage, Ownable {
     }
 
     // Mint Soul NFT
-    function mintSoulNFT() external payable {
+    function mintSoulNFT(string calldata tokenURI_) external payable {
         require(!hasMinted[msg.sender], "Already minted");
         require(msg.value >= mintFee, "Insufficient mint fee");
 
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, tokenURI_);
         hasMinted[msg.sender] = true;
 
         // 初始化用户信息
@@ -122,6 +124,19 @@ contract SoulSign is ERC721, ERC721URIStorage, Ownable {
     // 提现合约余额（仅owner）
     function withdraw() external onlyOwner {
         payable(owner()).transfer(address(this).balance);
+    }
+
+    // 禁止NFT转移（不可转让）
+    function transferFrom(address, address, uint256) public pure override(ERC721, IERC721) {
+        revert("Soul NFT is non-transferable");
+    }
+
+    function safeTransferFrom(address, address, uint256) public pure override(ERC721, IERC721) {
+        revert("Soul NFT is non-transferable");
+    }
+
+    function safeTransferFrom(address, address, uint256, bytes memory) public pure override(ERC721, IERC721) {
+        revert("Soul NFT is non-transferable");
     }
 
     // 以下是 ERC721URIStorage 必需函数
