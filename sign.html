@@ -846,8 +846,10 @@
                 const chainId = await window.ethereum.request({ method: 'eth_chainId' });
                 localStorage.setItem(STORAGE_KEY, accounts[0]);
                 localStorage.setItem(STORAGE_CHAIN, chainId);
+                currentWallet = accounts[0];
                 updateUI(accounts[0]);
                 hideModal();
+                await initContract();
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect MetaMask.'));
@@ -865,6 +867,7 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 updateUI(accounts[0]);
                 hideModal();
+                await initContract();
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Coinbase Wallet.'));
@@ -891,6 +894,7 @@
                 localStorage.setItem(STORAGE_KEY, accounts[0]);
                 localStorage.setItem(STORAGE_CHAIN, provider.chainId.toString());
                 updateUI(accounts[0]);
+                await initContract();
             }
         } catch (err) {
             if (err.code === 'MODAL_CLOSED' || err.message?.includes('Modal closed') || err.message?.includes('User closed') || err.message?.includes('Connection request reset') || err.message?.includes('Connection abandoned')) {
@@ -914,6 +918,7 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 updateUI(accounts[0]);
                 hideModal();
+                await initContract();
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Rabby.'));
@@ -960,6 +965,7 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 updateUI(accounts[0]);
                 hideModal();
+                await initContract();
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect OKX Wallet.'));
@@ -977,6 +983,7 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 updateUI(accounts[0]);
                 hideModal();
+                await initContract();
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Trust Wallet.'));
