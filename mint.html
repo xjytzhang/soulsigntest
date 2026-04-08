@@ -140,31 +140,38 @@
     let provider = null;
     let signer = null;
     let contract = null;
+    let walletProvider = null;
+    const STORAGE_KEY = 'soulsign_wallet_address';
 
     // ============================================
     // 钱包连接
     // ============================================
     async function connectWallet() {
+      if (typeof ethers === 'undefined') { alert('Ethers.js not loaded. Please refresh.'); return; }
       if (!window.ethereum) {
-        alert('Please install MetaMask or a compatible wallet first.');
+        alert('Please install a compatible wallet first.');
         return;
       }
 
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        // 使用已保存的 provider（如果有），否则用 window.ethereum
+        const prov = walletProvider || window.ethereum;
+        const accounts = await prov.request({ method: 'eth_requestAccounts' });
+        if (!accounts || accounts.length === 0) { alert('No accounts returned.'); return; }
         currentAccount = accounts[0];
+        walletProvider = prov;
 
         // 检查是否是 Base Sepolia 网络
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const chainId = await prov.request({ method: 'eth_chainId' });
         if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
           try {
-            await window.ethereum.request({
+            await prov.request({
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
             });
           } catch (switchError) {
             if (switchError.code === 4902) {
-              await window.ethereum.request({
+              await prov.request({
                 method: 'wallet_addEthereumChain',
                 params: [{
                   chainId: BASE_SEPOLIA_CHAIN_ID,
@@ -178,8 +185,11 @@
           }
         }
 
+        // 保存到 localStorage
+        localStorage.setItem(STORAGE_KEY, currentAccount);
+
         // 初始化 ethers.js
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new ethers.BrowserProvider(prov);
         signer = await provider.getSigner();
         contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
@@ -211,17 +221,21 @@
       provider = null;
       signer = null;
       contract = null;
+      localStorage.removeItem(STORAGE_KEY);
       updateWalletUI();
     }
 
     function updateWalletUI() {
       if (currentAccount) {
-        if (walletAddress) walletAddress.textContent = truncateAddress(currentAccount);
+        const shortAddr = truncateAddress(currentAccount);
+        // Update header address span
+        if (walletAddress) walletAddress.textContent = shortAddr;
         // Update the address span inside wallet button
         const addressSpan = walletBtn ? walletBtn.querySelector('.font-mono') : null;
-        if (addressSpan) addressSpan.textContent = truncateAddress(currentAccount);
+        if (addressSpan) addressSpan.textContent = shortAddr;
         if (walletBtn) walletBtn.classList.add('text-secondary');
       } else {
+        if (walletAddress) walletAddress.textContent = 'Connect Wallet';
         if (walletBtn) { walletBtn.classList.remove('text-secondary'); walletBtn.classList.add('text-white/50'); }
       }
     }
@@ -245,7 +259,7 @@
           if (btnText) btnText.innerHTML = 'Already Minted';
           setMintStatus('Soul NFT already minted! Redirecting to Sign...', 'success');
           setTimeout(() => {
-            window.location.href = '../sign/code.html';
+            window.location.href = 'sign.html';
           }, 2000);
         }
       } catch (err) {
@@ -276,9 +290,13 @@
       }
 
       try {
-        if (mintBtn) mintBtn.disabled = true;
+        if (mintBtn) {
+          mintBtn.disabled = true;
+          mintBtn.classList.add('opacity-70', 'cursor-not-allowed');
+          mintBtn.classList.remove('hover:bg-primary', 'active:scale-95', 'hover:shadow-[0_0_60px_rgba(0,229,255,0.4)]');
+        }
         const btnText = document.getElementById('mint-btn-text');
-        if (btnText) btnText.textContent = 'Minting...';
+        if (btnText) btnText.innerHTML = '<span class="material-symbols-outlined animate-spin" data-icon="progress_activity" style="font-variation-settings:\'FILL\' 1;">progress_activity</span> Minting...';
         setMintStatus('Transaction submitted. Please wait...', 'info');
 
         // 调用合约 mintSoulNFT()
@@ -335,12 +353,16 @@
 
         setMintStatus('Welcome to SoulSign! Redirecting...', 'success');
         setTimeout(() => {
-          window.location.href = '../sign/code.html';
+          window.location.href = 'sign.html';
         }, 2000);
 
       } catch (err) {
         console.error('Mint error:', err);
-        if (mintBtn) mintBtn.disabled = false;
+        if (mintBtn) {
+          mintBtn.disabled = false;
+          mintBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+          mintBtn.classList.add('hover:bg-primary', 'active:scale-95', 'hover:shadow-[0_0_60px_rgba(0,229,255,0.4)]');
+        }
         const btnText = document.getElementById('mint-btn-text');
         if (btnText) btnText.innerHTML = '<span class="material-symbols-outlined" data-icon="token" style="font-variation-settings:\'FILL\' 1;">token</span> Mint Your Soul NFT';
 
@@ -378,8 +400,21 @@
       window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
         if (accounts.length > 0) {
           connectWallet();
+        } else {
+          // 从 localStorage 恢复地址并显示
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            currentAccount = saved;
+            updateWalletUI();
+          }
         }
+      }).catch(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { currentAccount = saved; updateWalletUI(); }
       });
+    } else {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) { currentAccount = saved; updateWalletUI(); }
     }
 
     // 按钮事件
@@ -470,7 +505,7 @@
 <div class="group relative">
 <button id="wallet-btn" class="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/10 transition-all duration-300">
 <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-<span id="wallet-address" class="text-sm font-mono text-secondary">0x...f42c</span>
+<span id="wallet-address" class="text-sm font-mono text-secondary">Connect Wallet</span>
 <span class="material-symbols-outlined text-lg opacity-40 group-hover:rotate-180 transition-transform duration-300">expand_more</span>
 </button>
 <!-- Hidden Navigation Dropdown (Disabled - non-NFT users) -->
