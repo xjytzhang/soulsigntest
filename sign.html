@@ -839,17 +839,34 @@
     }
     async function connectMetaMask() {
         if (!window.ethereum) { showError('MetaMask not installed.'); return; }
+        if (typeof ethers === 'undefined') { showError('Ethers.js not loaded. Please refresh and try again.'); return; }
         try {
             showLoading();
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            if (accounts && accounts.length > 0) {
-                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                localStorage.setItem(STORAGE_KEY, accounts[0]);
-                localStorage.setItem(STORAGE_CHAIN, chainId);
-                currentWallet = accounts[0];
-                updateUI(accounts[0]);
-                hideModal();
-                await initContract();
+            console.log('[SoulSign] MetaMask accounts:', accounts);
+            if (!accounts || accounts.length === 0) { showError('No accounts returned.'); return; }
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            localStorage.setItem(STORAGE_KEY, accounts[0]);
+            localStorage.setItem(STORAGE_CHAIN, chainId);
+            currentWallet = accounts[0];
+            updateUI(accounts[0]);
+            // 给 UI 一点时间渲染，再做合约调用
+            await new Promise(r => setTimeout(r, 100));
+            hideModal();
+            try {
+              const prov = new ethers.BrowserProvider(window.ethereum);
+              const sig = await prov.getSigner();
+              contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
+              const hasNFT = await contract.hasSoulNFT(accounts[0]);
+              console.log('[SoulSign] hasNFT:', hasNFT);
+              if (!hasNFT) {
+                window.location.href = 'mint.html';
+                return;
+              }
+              await loadLastCheckIn();
+            } catch (err) {
+              console.error('[SoulSign] Contract error:', err);
+              showError('Failed to connect to contract. Check console for details.');
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect MetaMask.'));
@@ -1093,12 +1110,10 @@
     // 监听钱包连接（polling方式，因为主脚本用DOMContentLoaded）
     setTimeout(() => {
       const savedAddress = localStorage.getItem('soulsign_wallet_address');
-      if (savedAddress) {
+      if (savedAddress && savedAddress !== currentWallet) {
         currentWallet = savedAddress;
+        updateUI(savedAddress);
         initContract();
-        document.dispatchEvent(new CustomEvent('walletConnected', {
-          detail: { address: savedAddress }
-        }));
       }
     }, 500);
 </script>
