@@ -849,10 +849,9 @@
             localStorage.setItem(STORAGE_KEY, accounts[0]);
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
-            updateUI(accounts[0]);
-            // 给 UI 一点时间渲染，再做合约调用
-            await new Promise(r => setTimeout(r, 100));
+            console.log('[SoulSign] MetaMask connected:', accounts[0]);
             hideModal();
+            updateUI(accounts[0]);
             try {
               const prov = new ethers.BrowserProvider(window.ethereum);
               const sig = await prov.getSigner();
@@ -884,10 +883,16 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 currentWallet = accounts[0];
                 console.log('[SoulSign] Coinbase connected:', accounts[0]);
-                updateUI(accounts[0]);
-                await new Promise(r => setTimeout(r, 100));
                 hideModal();
-                await initContract();
+                updateUI(accounts[0]);
+                try {
+                  const prov = new ethers.BrowserProvider(window.ethereum);
+                  const sig = await prov.getSigner();
+                  contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
+                  const hasNFT = await contract.hasSoulNFT(accounts[0]);
+                  if (!hasNFT) { window.location.href = 'mint.html'; return; }
+                  await loadLastCheckIn();
+                } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Coinbase Wallet.'));
@@ -915,8 +920,6 @@
                 localStorage.setItem(STORAGE_CHAIN, provider.chainId.toString());
                 currentWallet = accounts[0];
                 console.log('[SoulSign] WalletConnect connected:', accounts[0]);
-                updateUI(accounts[0]);
-                await new Promise(r => setTimeout(r, 100));
                 try {
                   const prov = new ethers.BrowserProvider(window.ethereum);
                   const sig = await prov.getSigner();
@@ -924,7 +927,8 @@
                   const hasNFT = await contract.hasSoulNFT(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
-                } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error. Check console.'); }
+                } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
+                updateUI(accounts[0]);
             }
         } catch (err) {
             if (err.code === 'MODAL_CLOSED' || err.message?.includes('Modal closed') || err.message?.includes('User closed') || err.message?.includes('Connection request reset') || err.message?.includes('Connection abandoned')) {
@@ -949,9 +953,8 @@
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 currentWallet = accounts[0];
                 console.log('[SoulSign] Rabby connected:', accounts[0]);
-                updateUI(accounts[0]);
-                await new Promise(r => setTimeout(r, 100));
                 hideModal();
+                updateUI(accounts[0]);
                 try {
                   const prov = new ethers.BrowserProvider(window.ethereum);
                   const sig = await prov.getSigner();
@@ -959,7 +962,7 @@
                   const hasNFT = await contract.hasSoulNFT(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
-                } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error. Check console.'); }
+                } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
             }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Rabby.'));
@@ -1011,9 +1014,8 @@
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
             console.log('[SoulSign] OKX connected:', accounts[0]);
-            updateUI(accounts[0]);
-            await new Promise(r => setTimeout(r, 100));
             hideModal();
+            updateUI(accounts[0]);
             try {
               console.log('[SoulSign] Creating provider...');
               const prov = new ethers.BrowserProvider(window.ethereum);
@@ -1045,9 +1047,8 @@
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
             console.log('[SoulSign] Trust connected:', accounts[0]);
-            updateUI(accounts[0]);
-            await new Promise(r => setTimeout(r, 100));
             hideModal();
+            updateUI(accounts[0]);
             try {
               const prov = new ethers.BrowserProvider(window.ethereum);
               const sig = await prov.getSigner();
@@ -1055,7 +1056,7 @@
               const hasNFT = await contract.hasSoulNFT(accounts[0]);
               if (!hasNFT) { window.location.href = 'mint.html'; return; }
               await loadLastCheckIn();
-            } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error. Check console.'); }
+            } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect Trust Wallet.'));
         }
