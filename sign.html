@@ -841,35 +841,27 @@
     }
     async function connectMetaMask() {
         if (!window.ethereum) { showError('MetaMask not installed.'); return; }
-        if (typeof ethers === 'undefined') { showError('Ethers.js not loaded. Please refresh and try again.'); return; }
+        if (typeof ethers === 'undefined') { showError('Ethers.js not loaded. Please refresh.'); return; }
         try {
             showLoading();
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            console.log('[SoulSign] MetaMask accounts:', accounts);
-            if (!accounts || accounts.length === 0) { showError('No accounts returned.'); return; }
-            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-            localStorage.setItem(STORAGE_KEY, accounts[0]);
-            localStorage.setItem(STORAGE_CHAIN, chainId);
-            currentWallet = accounts[0];
             walletProvider = window.ethereum;
-            console.log('[SoulSign] MetaMask connected:', accounts[0]);
+            const prov = new ethers.BrowserProvider(window.ethereum);
+            const signer = await prov.getSigner();
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (!accounts || accounts.length === 0) { showError('No accounts returned.'); return; }
+            const addr = accounts[0];
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            localStorage.setItem(STORAGE_KEY, addr);
+            localStorage.setItem(STORAGE_CHAIN, chainId);
+            currentWallet = addr;
+            console.log('[SoulSign] MetaMask connected:', addr);
             hideModal();
-            updateUI(accounts[0]);
-            try {
-              const prov = new ethers.BrowserProvider(walletProvider);
-              const sig = await prov.getSigner();
-              contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-              const hasNFT = await contract.hasSoulNFT(accounts[0]);
-              console.log('[SoulSign] hasNFT:', hasNFT);
-              if (!hasNFT) {
-                window.location.href = 'mint.html';
-                return;
-              }
-              await loadLastCheckIn();
-            } catch (err) {
-              console.error('[SoulSign] Contract error:', err);
-              showError('Failed to connect to contract. Check console for details.');
-            }
+            updateUI(addr);
+            contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+            const hasNFT = await contract.hasSoulNFT(addr);
+            console.log('[SoulSign] hasNFT:', hasNFT);
+            if (!hasNFT) { window.location.href = 'mint.html'; return; }
+            await loadLastCheckIn();
         } catch (err) {
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect MetaMask.'));
         }
@@ -1007,36 +999,33 @@
     async function connectOKX() {
         console.log('[SoulSign] connectOKX called');
         if (typeof ethers === 'undefined') { showError('Ethers.js not loaded. Please refresh.'); return; }
-        const okxProvider = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || (window.ethereum?.isOkxWallet ? window.ethereum : null) || window.okxwallet || (window.ethereum && (window.ethereum.isOkx || window.ethereum.isOkcWallet) ? window.ethereum : null);
-        console.log('[SoulSign] OKX provider:', !!okxProvider, okxProvider ? 'found' : 'not found');
+        // 找到 OKX provider
+        const okxProvider = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
+        console.log('[SoulSign] OKX provider found:', !!okxProvider);
         if (!okxProvider) { showError('OKX Wallet not installed.'); return; }
         try {
             showLoading();
+            // 直接用 ethers BrowserProvider，它会弹出 OKX
+            walletProvider = okxProvider;
+            const prov = new ethers.BrowserProvider(okxProvider);
             console.log('[SoulSign] Requesting accounts from OKX...');
+            const signer = await prov.getSigner();
             const accounts = await okxProvider.request({ method: 'eth_requestAccounts' });
             console.log('[SoulSign] OKX accounts:', accounts);
             if (!accounts || accounts.length === 0) { showError('No accounts returned.'); return; }
+            const addr = accounts[0];
             const chainId = await okxProvider.request({ method: 'eth_chainId' });
-            localStorage.setItem(STORAGE_KEY, accounts[0]);
+            localStorage.setItem(STORAGE_KEY, addr);
             localStorage.setItem(STORAGE_CHAIN, chainId);
-            currentWallet = accounts[0];
-            walletProvider = okxProvider;
-            console.log('[SoulSign] OKX connected:', accounts[0]);
+            currentWallet = addr;
+            console.log('[SoulSign] OKX connected:', addr);
             hideModal();
-            updateUI(accounts[0]);
-            try {
-              console.log('[SoulSign] Creating provider with OKX provider...');
-              const prov = new ethers.BrowserProvider(walletProvider);
-              console.log('[SoulSign] Getting signer...');
-              const sig = await prov.getSigner();
-              console.log('[SoulSign] Signer address:', await sig.getAddress());
-              contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-              console.log('[SoulSign] Calling hasSoulNFT...');
-              const hasNFT = await contract.hasSoulNFT(accounts[0]);
-              console.log('[SoulSign] hasNFT:', hasNFT);
-              if (!hasNFT) { window.location.href = 'mint.html'; return; }
-              await loadLastCheckIn();
-            } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
+            updateUI(addr);
+            contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+            const hasNFT = await contract.hasSoulNFT(addr);
+            console.log('[SoulSign] hasNFT:', hasNFT);
+            if (!hasNFT) { window.location.href = 'mint.html'; return; }
+            await loadLastCheckIn();
         } catch (err) {
             console.error('[SoulSign] OKX connect error:', err);
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect OKX Wallet.'));
