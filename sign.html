@@ -810,10 +810,12 @@
 
     function truncateAddress(addr) { if (!addr) return '0x...'; return addr.slice(0, 6) + '...' + addr.slice(-4); }
     function updateUI(address) {
+        console.log('[SoulSign] updateUI called with:', address, 'display element:', !!addressDisplay);
         if (address) {
             connectedDiv.classList.remove('hidden');
             connectBtn.classList.add('hidden');
             addressDisplay.textContent = truncateAddress(address);
+            console.log('[SoulSign] set display to:', truncateAddress(address));
         } else {
             connectedDiv.classList.add('hidden');
             connectBtn.classList.remove('hidden');
