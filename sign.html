@@ -851,11 +851,12 @@
             localStorage.setItem(STORAGE_KEY, accounts[0]);
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
+            walletProvider = window.ethereum;
             console.log('[SoulSign] MetaMask connected:', accounts[0]);
             hideModal();
             updateUI(accounts[0]);
             try {
-              const prov = new ethers.BrowserProvider(window.ethereum);
+              const prov = new ethers.BrowserProvider(walletProvider);
               const sig = await prov.getSigner();
               contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
               const hasNFT = await contract.hasSoulNFT(accounts[0]);
@@ -884,11 +885,12 @@
                 localStorage.setItem(STORAGE_KEY, accounts[0]);
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 currentWallet = accounts[0];
+                walletProvider = coinbase;
                 console.log('[SoulSign] Coinbase connected:', accounts[0]);
                 hideModal();
                 updateUI(accounts[0]);
                 try {
-                  const prov = new ethers.BrowserProvider(window.ethereum);
+                  const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
                   const hasNFT = await contract.hasSoulNFT(accounts[0]);
@@ -921,16 +923,18 @@
                 localStorage.setItem(STORAGE_KEY, accounts[0]);
                 localStorage.setItem(STORAGE_CHAIN, provider.chainId.toString());
                 currentWallet = accounts[0];
+                walletProvider = provider;
                 console.log('[SoulSign] WalletConnect connected:', accounts[0]);
+                hideModal();
+                updateUI(accounts[0]);
                 try {
-                  const prov = new ethers.BrowserProvider(window.ethereum);
+                  const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
                   const hasNFT = await contract.hasSoulNFT(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
                 } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
-                updateUI(accounts[0]);
             }
         } catch (err) {
             if (err.code === 'MODAL_CLOSED' || err.message?.includes('Modal closed') || err.message?.includes('User closed') || err.message?.includes('Connection request reset') || err.message?.includes('Connection abandoned')) {
@@ -954,11 +958,12 @@
                 localStorage.setItem(STORAGE_KEY, accounts[0]);
                 localStorage.setItem(STORAGE_CHAIN, chainId);
                 currentWallet = accounts[0];
+                walletProvider = rabby;
                 console.log('[SoulSign] Rabby connected:', accounts[0]);
                 hideModal();
                 updateUI(accounts[0]);
                 try {
-                  const prov = new ethers.BrowserProvider(window.ethereum);
+                  const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
                   const hasNFT = await contract.hasSoulNFT(accounts[0]);
@@ -1015,12 +1020,13 @@
             localStorage.setItem(STORAGE_KEY, accounts[0]);
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
+            walletProvider = okxProvider;
             console.log('[SoulSign] OKX connected:', accounts[0]);
             hideModal();
             updateUI(accounts[0]);
             try {
-              console.log('[SoulSign] Creating provider...');
-              const prov = new ethers.BrowserProvider(window.ethereum);
+              console.log('[SoulSign] Creating provider with OKX provider...');
+              const prov = new ethers.BrowserProvider(walletProvider);
               console.log('[SoulSign] Getting signer...');
               const sig = await prov.getSigner();
               console.log('[SoulSign] Signer address:', await sig.getAddress());
@@ -1048,11 +1054,12 @@
             localStorage.setItem(STORAGE_KEY, accounts[0]);
             localStorage.setItem(STORAGE_CHAIN, chainId);
             currentWallet = accounts[0];
+            walletProvider = trustProvider;
             console.log('[SoulSign] Trust connected:', accounts[0]);
             hideModal();
             updateUI(accounts[0]);
             try {
-              const prov = new ethers.BrowserProvider(window.ethereum);
+              const prov = new ethers.BrowserProvider(walletProvider);
               const sig = await prov.getSigner();
               contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
               const hasNFT = await contract.hasSoulNFT(accounts[0]);
@@ -1083,6 +1090,7 @@
 
     let contract = null;
     let currentWallet = null;
+    let walletProvider = null;
 
     // 监听钱包连接事件（由主脚本触发）
     document.addEventListener('walletConnected', async (e) => {
@@ -1091,9 +1099,10 @@
     });
 
     async function initContract() {
-      if (!window.ethereum || !currentWallet) return;
+      const prov = walletProvider || window.ethereum;
+      if (!prov || !currentWallet) return;
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new ethers.BrowserProvider(prov);
         const signer = await provider.getSigner();
         contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
