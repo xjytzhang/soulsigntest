@@ -333,25 +333,9 @@ const result = parseInt(hex === '0x' ? '0' : hex, 16);
           }),
         }).catch(err => console.error('Firebase register error:', err));
 
-        // 设置紧急联系人（预计算的 ABI 编码）
-        try {
-          setMintStatus('Setting emergency contact...', 'info');
-          const contactTx = await contract.setEmergencyContact(username, guardianEmail, { gasLimit: 2000000 });
-          await contactTx.wait();
-        } catch (e) {
-          console.error('Set emergency contact error:', e);
-        }
-
-        // 保存到 Firebase
-        await fetch(`${API_BASE}/api/setEmergencyContact`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet: currentAccount,
-            name: username,
-            email: guardianEmail,
-          }),
-        }).catch(err => console.error('Firebase emergency contact error:', err));
+        // 保存到 localStorage（设置页面要用）
+        localStorage.setItem('soulsign_guardian_name', username);
+        localStorage.setItem('soulsign_guardian_email', guardianEmail);
 
         setMintStatus('Welcome to SoulSign! Redirecting...', 'success');
         setTimeout(() => {
