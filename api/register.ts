@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { wallet, txHash, chainId } = req.body;
+    const { wallet, txHash, chainId, emergencyName, emergencyEmail } = req.body;
 
     if (!wallet) {
       return res.status(400).json({ error: 'wallet is required' });
@@ -49,8 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             wallet: { stringValue: walletLower },
             hasSoulNFT: { booleanValue: true },
             lastCheckIn: { timestampValue: now },
-            emergencyEmail: { stringValue: '' },
-            emergencyName: { stringValue: '' },
+            emergencyEmail: { stringValue: emergencyEmail || '' },
+            emergencyName: { stringValue: emergencyName || '' },
             alerted72h: { booleanValue: false },
             createdAt: { timestampValue: now },
             txHash: { stringValue: txHash || '' },
