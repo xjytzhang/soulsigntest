@@ -470,7 +470,6 @@
         if (window.signingInProgress) return;
         if (window.syncCompleted) return;
         window.signingInProgress = true;
-        window.syncCompleted = true;
 
         // 停止所有interval
         clearInterval(chargeInterval);
@@ -480,6 +479,7 @@
         // 检查是否已签到过
         if (localStorage.getItem('soulsign_checkin_today')) {
             window.signingInProgress = false;
+            window.syncCompleted = true;
             stopCharging();
             statusText.innerText = "Already signed today";
             statusText.classList.replace('text-primary', 'text-white/50');
@@ -487,10 +487,15 @@
             return;
         }
 
-        // 弹出签名动画
-        showSignatureAnimation().then(() => {
-            performCheckIn();
-        });
+        // 弹出签名动画 + 执行签到
+        showSignatureAnimation()
+            .then(() => performCheckIn())
+            .catch(err => {
+                console.error('[SoulSign] CheckIn error:', err);
+                hideSignatureAnimation();
+                window.signingInProgress = false;
+                window.syncCompleted = false;
+            });
     };
 
     function showDailyLimitOverlay() {
@@ -548,12 +553,12 @@
         if (sigOverlay) sigOverlay.classList.add('hidden');
     }
 
-    function performCheckIn() {
+    async function performCheckIn() {
         const wallet = localStorage.getItem('soulsign_wallet_address');
         if (!wallet) {
             hideSignatureAnimation();
             showError('Please connect your wallet first');
-            return;
+            throw new Error('No wallet');
         }
 
         // 用正确钱包 provider
@@ -565,24 +570,18 @@
         if (!rawProv) {
             hideSignatureAnimation();
             showError('No wallet found');
-            return;
+            throw new Error('No provider');
         }
 
         // 确保 contract 已初始化
         if (!contract) {
-            // 立即初始化
             const ethersProv = new ethers.BrowserProvider(rawProv);
-            ethersProv.getSigner().then(signer => {
-                contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
-                sendCheckInTx(rawProv, wallet);
-            }).catch(() => {
-                hideSignatureAnimation();
-                showError('Wallet not authorized');
-            });
-            return;
+            const signer = await ethersProv.getSigner();
+            contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+            walletProvider = rawProv;
         }
 
-        sendCheckInTx(rawProv, wallet);
+        await sendCheckInTx(rawProv, wallet);
     }
 
     async function sendCheckInTx(rawProv, wallet) {
