@@ -326,6 +326,9 @@
         const signer = await bp.getSigner();
         const txContract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
+        const tokenURI = 'ipfs://bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
+        const tx = await txContract.mintSoulNFT(tokenURI);
+
         setMintStatus('Waiting for confirmation...', 'info');
 
         const receipt = await tx.wait();
