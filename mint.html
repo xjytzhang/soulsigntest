@@ -187,6 +187,12 @@
 
         // 保存到 localStorage
         localStorage.setItem(STORAGE_KEY, currentAccount);
+        // 保存钱包类型
+        let providerType = 'metamask';
+        if (prov.isOkxWallet || prov.isOkx || prov.isOkcWallet) providerType = 'okx';
+        else if (prov.isCoinbaseWallet) providerType = 'coinbase';
+        else if (prov.isTrust) providerType = 'trust';
+        localStorage.setItem('soulsign_provider_type', providerType);
 
         // 初始化 ethers.js
         provider = new ethers.BrowserProvider(prov);
@@ -427,20 +433,34 @@
     async function restoreContract(savedAddress) {
       if (typeof ethers === 'undefined' || !savedAddress) return;
       try {
-        const prov = new ethers.BrowserProvider(window.ethereum);
+        // 根据之前保存的钱包类型找到正确的 provider
+        const providerType = localStorage.getItem('soulsign_provider_type');
+        let prov;
+        if (providerType === 'okx') {
+          const okxProvider = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
+          if (!okxProvider) { setMintStatus('Please click wallet button and reconnect OKX.', 'error'); return; }
+          prov = new ethers.BrowserProvider(okxProvider);
+        } else if (providerType === 'coinbase') {
+          const cbProvider = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
+          if (!cbProvider) { setMintStatus('Please click wallet button and reconnect Coinbase.', 'error'); return; }
+          prov = new ethers.BrowserProvider(cbProvider);
+        } else if (providerType === 'trust') {
+          const trustProvider = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
+          if (!trustProvider) { setMintStatus('Please click wallet button and reconnect Trust.', 'error'); return; }
+          prov = new ethers.BrowserProvider(trustProvider);
+        } else {
+          // 默认用 window.ethereum
+          prov = new ethers.BrowserProvider(window.ethereum);
+        }
         const sig = await prov.getSigner();
         const addr = await sig.getAddress();
         if (addr.toLowerCase() === savedAddress.toLowerCase()) {
           contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-          // 检查是否已 mint
           await checkIfMinted();
         }
       } catch (err) {
         console.error('[SoulSign] Restore contract error:', err);
-        // 合约没初始化，显示提示
-        if (mintStatus) {
-          setMintStatus('Click the wallet button above to reconnect your wallet.', 'error');
-        }
+        setMintStatus('Click wallet button above to reconnect your wallet.', 'error');
       }
     }
 
