@@ -551,9 +551,16 @@
     });
     document.addEventListener('DOMContentLoaded', async () => {
         const savedAddress = localStorage.getItem(STORAGE_KEY);
-        if (savedAddress && window.ethereum) {
+        const savedProviderType = localStorage.getItem('soulsign_provider_type') || 'metamask';
+        if (savedAddress) {
             try {
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                let prov;
+                if (savedProviderType === 'okx') prov = window.okxwallet;
+                else if (savedProviderType === 'coinbase') prov = window.coinbaseWallet;
+                else if (savedProviderType === 'trust') prov = window.trustwallet;
+                else prov = window.ethereum;
+                if (!prov) return;
+                const accounts = await prov.request({ method: 'eth_accounts' });
                 if (accounts && accounts[0]?.toLowerCase() === savedAddress.toLowerCase()) {
                     updateUI(accounts[0]);
                     const hasNFT = await checkSoulNFT(accounts[0]);
