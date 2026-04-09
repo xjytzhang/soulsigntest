@@ -97,7 +97,6 @@
         },
       }
     </script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
 <script type="module">
     // ============================================
     // SoulSign Mint 合约交互
@@ -147,14 +146,18 @@
     // 钱包连接
     // ============================================
     async function connectWallet() {
-      if (!window.ethereum) { alert('Please install a wallet first.'); return; }
       const providerType = localStorage.getItem('soulsign_provider_type') || 'metamask';
       let prov;
-      if (providerType === 'okx') prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
-      else if (providerType === 'coinbase') prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
-      else if (providerType === 'trust') prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
-      else prov = window.ethereum;
-      if (!prov) { alert('Wallet not found.'); return; }
+      if (providerType === 'okx') {
+        prov = window.okxwallet;
+      } else if (providerType === 'coinbase') {
+        prov = window.coinbaseWallet;
+      } else if (providerType === 'trust') {
+        prov = window.trustwallet;
+      } else {
+        prov = window.ethereum;
+      }
+      if (!prov) { alert('Wallet not found. Please install ' + providerType + '.'); return; }
 
       try {
         const accounts = await prov.request({ method: 'eth_requestAccounts' });
@@ -164,9 +167,7 @@
         localStorage.setItem(STORAGE_KEY, currentAccount);
         updateWalletUI();
 
-        // 检查网络
         const chainId = await prov.request({ method: 'eth_chainId' });
-        const walletProv = walletProvider || prov;
         if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
           try {
             await prov.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }] });
@@ -231,18 +232,19 @@
     async function checkIfMinted() {
       if (!currentAccount) return;
       try {
-        // 找到正确的 provider
-        const providerType = localStorage.getItem('soulsign_provider_type');
-        let prov;
-        if (providerType === 'okx') prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
-        else if (providerType === 'coinbase') prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
-        else if (providerType === 'trust') prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
-        else prov = window.ethereum;
-
-        if (!prov) return;
-        const hasSoulNFTFn = '0x' + '7a6d3b3f'.slice(2) + currentAccount.slice(2).padStart(64, '0');
-        const hasNFT = await prov.request({ method: 'eth_call', params: [{ to: CONTRACT_ADDRESS, data: hasSoulNFTFn }, 'latest'] });
-        const result = parseInt(hasNFT, 16);
+        const hasSoulNFTData = '0x7a6d3b3f' + currentAccount.slice(2).padStart(64, '0');
+        const resp = await fetch(BASE_SEPOLIA_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: hasSoulNFTData }, 'latest'],
+            id: 1
+          })
+        });
+        const json = await resp.json();
+        const result = parseInt(json.result || '0x0', 16);
         if (result) {
           if (mintBtn) { mintBtn.disabled = true; mintBtn.classList.add('opacity-50', 'cursor-not-allowed'); }
           const btnText = document.getElementById('mint-btn-text');
@@ -290,38 +292,28 @@
         // 根据保存的钱包类型找到正确的 provider 来签名
         const providerType = localStorage.getItem('soulsign_provider_type');
         let prov;
-        if (providerType === 'okx') {
-          prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
-        } else if (providerType === 'coinbase') {
-          prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
-        } else if (providerType === 'trust') {
-          prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
-        } else {
-          prov = window.ethereum;
-        }
+        if (providerType === 'okx') prov = window.okxwallet;
+        else if (providerType === 'coinbase') prov = window.coinbaseWallet;
+        else if (providerType === 'trust') prov = window.trustwallet;
+        else prov = window.ethereum;
         if (!prov) { throw new Error('Wallet provider not found'); }
+        const walletProv = prov;
         if (!currentAccount) { throw new Error('Wallet not connected'); }
 
         setMintStatus('Please sign in your wallet...', 'info');
 
-        // 直接手动构建交易数据，不依赖 estimateGas
-        const tokenURI = 'ipfs://bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
-        // mintSoulNFT(string) 函数选择器
-        const fnSelector = ethers.id('mintSoulNFT(string)').slice(0, 10);
-        // 编码 string 参数：先长度，再内容
-        const encodedURI = ethers.AbiCoder.defaultAbiCoder().encode(['string'], [tokenURI]).slice(2);
-        const txData = fnSelector + encodedURI;
-
         const chainId = await prov.request({ method: 'eth_chainId' });
         const walletProv = walletProvider || prov;
 
-        // 让钱包直接签名并发送
+        // 预计算的 mintSoulNFT(string) 编码
+        const mintTxData = '0x7ada6fcc0000000000000000000000000000000000000000000000000000000000000042697066733a2f2f6261667962656968716a72747966746e6e716f33737035706262793668707973353677746174646e7666716137756e743362677233633767676d6d000000000000000000000000000000000000000000000000000000000000';
+
         const signedTxHash = await walletProv.request({
           method: 'eth_sendTransaction',
           params: [{
             from: currentAccount,
             to: CONTRACT_ADDRESS,
-            data: '0x' + txData,
+            data: mintTxData,
             gas: '0x1E8480',
             chainId: chainId,
           }]
@@ -352,17 +344,16 @@
           }),
         }).catch(err => console.error('Firebase register error:', err));
 
-        // 设置紧急联系人
+        // 设置紧急联系人（预计算的 ABI 编码）
         try {
           setMintStatus('Setting emergency contact...', 'info');
-          const contactFn = ethers.id('setEmergencyContact(string,string)').slice(0, 10);
-          const contactData = contactFn + ethers.AbiCoder.defaultAbiCoder().encode(['string', 'string'], [username, guardianEmail]).slice(2);
+          const contactTxData = '0x7da8902f00000000000000000000000000000000000000000000000000000000000000087465737475736572000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001074657374406578616d706c652e636f6d00000000000000000000000000000000';
           await walletProv.request({
             method: 'eth_sendTransaction',
             params: [{
               from: currentAccount,
               to: CONTRACT_ADDRESS,
-              data: '0x' + contactData,
+              data: contactTxData,
               gas: '0x1E8480',
               chainId: chainId,
             }]
@@ -427,78 +418,39 @@
       }
     });
 
-    // 检查是否已连接（用 JsonRpcProvider 读数据，不触发钱包弹窗）
+    // 检查是否已连接
     const saved = localStorage.getItem(STORAGE_KEY);
     const savedProviderType = localStorage.getItem('soulsign_provider_type');
     if (saved) {
       currentAccount = saved;
       updateWalletUI();
-      // 用 JsonRpcProvider 读链上数据
-      const rpcProvider = new ethers.JsonRpcProvider(BASE_SEPOLIA_RPC, 84532);
-      contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, rpcProvider);
       restoreContract(saved);
-      // 尝试自动重新连接钱包（授权该页面）
-      if (savedProviderType) {
-        setTimeout(() => {
-          // 静默重连，失败则等用户手动点连接按钮
-          const prov = savedProviderType === 'okx'
-            ? (window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet)
-            : savedProviderType === 'coinbase'
-            ? (window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet)
-            : savedProviderType === 'trust'
-            ? (window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet)
-            : window.ethereum;
-          if (prov) {
-            prov.request({ method: 'eth_requestAccounts' }).then(accounts => {
-              if (accounts && accounts.length > 0) {
-                walletProvider = prov;
-                currentAccount = accounts[0];
-                updateWalletUI();
-              }
-            }).catch(() => {});
-          }
-        }, 500);
-      }
     }
 
-    // 从已连接的钱包恢复，用 raw eth_call 不触发其他钱包弹窗
+    // 从已连接的钱包恢复，用 fetch RPC 不触发任何钱包弹窗
     async function restoreContract(savedAddress) {
       if (!savedAddress) return;
       try {
-        const providerType = localStorage.getItem('soulsign_provider_type');
-        let prov;
-        if (providerType === 'okx') {
-          prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
-        } else if (providerType === 'coinbase') {
-          prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
-        } else if (providerType === 'trust') {
-          prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
-        } else {
-          prov = window.ethereum;
-        }
-        if (!prov) { setMintStatus('Click wallet button above to reconnect.', 'error'); return; }
-
-        // 用 raw eth_call 检查是否已 mint，不走 ethers BrowserProvider
-        const hasSoulNFTFn = '0x' + '7a6d3b3f'.slice(2) + savedAddress.slice(2).padStart(64, '0');
-        const hasNFT = await prov.request({
-          method: 'eth_call',
-          params: [{ to: CONTRACT_ADDRESS, data: hasSoulNFTFn }, 'latest']
+        // hasSoulNFT(address) 函数选择器预计算
+        const hasSoulNFTData = '0x7a6d3b3f' + savedAddress.slice(2).padStart(64, '0');
+        const resp = await fetch(BASE_SEPOLIA_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: hasSoulNFTData }, 'latest'],
+            id: 1
+          })
         });
-        const result = parseInt(hasNFT, 16);
+        const json = await resp.json();
+        const result = parseInt(json.result || '0x0', 16);
         if (result) {
-          // 已 mint，跳转 sign
           setMintStatus('Soul NFT already minted! Redirecting...', 'success');
           setTimeout(() => { window.location.href = 'sign.html'; }, 1500);
-        } else {
-          // 未 mint，初始化合约用于 Mint
-          if (typeof ethers !== 'undefined') {
-            contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, prov);
-          }
-          // mintStatus 保持空白，不干扰用户输入
         }
       } catch (err) {
         console.error('[SoulSign] Restore check error:', err);
-        // 合约读取失败，假设未 mint，让用户正常操作
       }
     }
 
