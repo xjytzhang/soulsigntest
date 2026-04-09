@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 更新 Firestore
     await fetch(
-      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/users/${walletLower}`,
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/users/${walletLower}?updateMask.fieldPaths=lastCheckIn&updateMask.fieldPaths=alerted72h`,
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
