@@ -700,25 +700,26 @@ function disconnectWallet() {
     updateUI(null);
 }
 
-// Event Listeners
-connectBtn.addEventListener('click', showModal);
-modalClose.addEventListener('click', hideModal);
-disconnectBtn.addEventListener('click', disconnectWallet);
-retryBtn.addEventListener('click', showModal);
-
-document.querySelectorAll('.wallet-option').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const wallet = btn.dataset.wallet;
-        if (wallet === 'metamask') connectMetaMask();
-        else if (wallet === 'coinbase') connectCoinbase();
-        else if (wallet === 'walletconnect') connectWalletConnect();
-        else if (wallet === 'okx') connectOKX();
-        else if (wallet === 'trust') connectTrust();
-    });
-});
-
-// Auto-connect on page load
+// Auto-connect on page load (DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', async () => {
+    // 绑定事件监听器（等 DOM 完全加载后）
+    connectBtn.addEventListener('click', showModal);
+    modalClose.addEventListener('click', hideModal);
+    disconnectBtn.addEventListener('click', disconnectWallet);
+    retryBtn.addEventListener('click', showModal);
+
+    document.querySelectorAll('.wallet-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const wallet = btn.dataset.wallet;
+            if (wallet === 'metamask') connectMetaMask();
+            else if (wallet === 'coinbase') connectCoinbase();
+            else if (wallet === 'walletconnect') connectWalletConnect();
+            else if (wallet === 'okx') connectOKX();
+            else if (wallet === 'trust') connectTrust();
+        });
+    });
+
+    // 自动重连
     const savedAddress = localStorage.getItem(STORAGE_KEY);
     const savedProvider = localStorage.getItem(STORAGE_PROVIDER);
     if (savedAddress) {
