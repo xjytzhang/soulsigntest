@@ -297,7 +297,6 @@
         else if (providerType === 'trust') prov = window.trustwallet;
         else prov = window.ethereum;
         if (!prov) { throw new Error('Wallet provider not found'); }
-        const walletProv = prov;
         if (!currentAccount) { throw new Error('Wallet not connected'); }
 
         setMintStatus('Please sign in your wallet...', 'info');
