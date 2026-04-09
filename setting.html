@@ -585,16 +585,17 @@
 
     async function checkSoulNFT(address) {
       try {
-        const data = '0xf2c35d02' + address.slice(2).toLowerCase().padStart(64, '0');
+        // 用 ERC721 balanceOf(address) - 链上验证有效
+        const data = '0x70a08231' + address.slice(2).toLowerCase().padStart(64, '0');
         const resp = await fetch('https://sepolia.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_call', params: [{ to: '0xCf5377314489E554Ac11810542070EE54d2C4894', data }, 'latest'], id: 1 })
         });
         const json = await resp.json();
-        const resultHex = json.result;
-        if (!resultHex || resultHex === '0x') return false;
-        return parseInt(resultHex.slice(-2), 16) === 1;
+        const hex = (json.result || '0x').replace(/^0x0+/, '0x');
+        const balance = parseInt(hex === '0x' ? '0' : hex, 16);
+        return balance > 0;
       } catch (err) {
         console.error('Check NFT error:', err);
         return false;

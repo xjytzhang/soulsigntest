@@ -523,8 +523,8 @@ function getWalletProvider(type) {
 // 检查用户是否已 Mint NFT (用 JSON-RPC 避免触发任何钱包弹窗)
 async function checkSoulNFT(address) {
   try {
-    // hasMinted(address) 函数选择器: 4 bytes of keccak256("hasMinted(address)")
-    const data = '0xf2c35d02' + address.slice(2).toLowerCase().padStart(64, '0');
+    // 用 ERC721 的 balanceOf(address) 判断 - 链上测试有效
+    const data = '0x70a08231' + address.slice(2).toLowerCase().padStart(64, '0');
     const result = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -536,12 +536,11 @@ async function checkSoulNFT(address) {
       })
     });
     const json = await result.json();
-    // hasMinted(address) returns bool — ethers parses it as true/false
+    // balanceOf 返回 uint256，> 0 说明已 Mint
     const resultHex = json.result;
     if (!resultHex || resultHex === '0x') return false;
-    // 最后一个字节: 0x01 = true, 0x00 = false
-    const lastByte = parseInt(resultHex.slice(-2), 16);
-    return lastByte === 1;
+    const balance = parseInt(resultHex.slice(-8), 16);
+    return balance > 0;
   } catch (err) {
     console.error('Check NFT error:', err);
     return false;

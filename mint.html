@@ -232,7 +232,7 @@
     async function checkIfMinted() {
       if (!currentAccount) return;
       try {
-        const hasSoulNFTData = '0xf2c35d02' + currentAccount.slice(2).padStart(64, '0');
+        const hasSoulNFTData = '0x70a08231' + currentAccount.slice(2).padStart(64, '0');
         const resp = await fetch(BASE_SEPOLIA_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -244,7 +244,8 @@
           })
         });
         const json = await resp.json();
-        const result = parseInt(json.result || '0x0', 16);
+        const hex = (json.result || '0x').replace(/^0x0+/, '0x');
+const result = parseInt(hex === '0x' ? '0' : hex, 16);
         if (result) {
           if (mintBtn) { mintBtn.disabled = true; mintBtn.classList.add('opacity-50', 'cursor-not-allowed'); }
           const btnText = document.getElementById('mint-btn-text');
@@ -425,7 +426,7 @@
       if (!savedAddress) return;
       try {
         // hasSoulNFT(address) 函数选择器预计算
-        const hasSoulNFTData = '0xf2c35d02' + savedAddress.slice(2).padStart(64, '0');
+        const hasSoulNFTData = '0x70a08231' + savedAddress.slice(2).padStart(64, '0');
         const resp = await fetch(BASE_SEPOLIA_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -437,7 +438,8 @@
           })
         });
         const json = await resp.json();
-        const result = parseInt(json.result || '0x0', 16);
+        const hex = (json.result || '0x').replace(/^0x0+/, '0x');
+const result = parseInt(hex === '0x' ? '0' : hex, 16);
         if (result) {
           setMintStatus('Soul NFT already minted! Redirecting...', 'success');
           setTimeout(() => { window.location.href = 'sign.html'; }, 1500);

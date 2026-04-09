@@ -1024,14 +1024,15 @@
             hideModal();
             updateUI(addr);
             // 用 raw eth_call 检查 NFT，完全不触发 MetaMask
-            // hasMinted(address) 函数选择器: 0xf2c35d02
-            const hasMintedFn = '0xf2c35d02' + addr.slice(2).toLowerCase().padStart(64, '0');
+            // 用 ERC721 balanceOf(address) - 选择器 0x70a08231
+            const balanceOfFn = '0x70a08231' + addr.slice(2).toLowerCase().padStart(64, '0');
             const hasNFT = await okxProvider.request({
               method: 'eth_call',
-              params: [{ to: CONTRACT_ADDRESS, data: hasMintedFn }, 'latest']
+              params: [{ to: CONTRACT_ADDRESS, data: balanceOfFn }, 'latest']
             });
-            const result = parseInt(hasNFT, 16);
-            console.log('[SoulSign] hasMinted raw:', hasNFT, 'parsed:', result);
+            const hex = (hasNFT || '0x').replace(/^0x0+/, '0x');
+            const result = parseInt(hex === '0x' ? '0' : hex, 16);
+            console.log('[SoulSign] balanceOf raw:', hasNFT, 'parsed:', result);
             if (!result) { window.location.href = 'mint.html'; return; }
             // 初始化合约用于后续交易
             if (typeof ethers !== 'undefined') {
