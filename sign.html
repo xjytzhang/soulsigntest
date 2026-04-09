@@ -351,6 +351,7 @@
     const successMsg = document.getElementById('success-msg');
     
     let charge = 0;
+    const API_BASE = 'https://soulsigntest.vercel.app';
     let isCharging = false;
     let chargeInterval;
     let isConfirmed = false;
@@ -606,7 +607,7 @@
             });
 
             // 签名成功，发送到数据库
-            await fetch(`${window.API_BASE}/api/checkin`, {
+            await fetch(`${API_BASE}/api/checkin`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ wallet, signature, timestamp: Date.now() }),
@@ -1220,7 +1221,7 @@
         console.log('[SoulSign] CheckIn tx:', tx.hash);
 
         // 保存到 Firebase
-        await fetch(`${API_BASE}/checkin`, {
+        await fetch(`${API_BASE}/api/checkin`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
