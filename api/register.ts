@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     const docRes = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/users/${walletLower}`,
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/users/${walletLower}?updateMask.fieldPaths=wallet&updateMask.fieldPaths=hasSoulNFT&updateMask.fieldPaths=lastCheckIn&updateMask.fieldPaths=emergencyEmail&updateMask.fieldPaths=emergencyName&updateMask.fieldPaths=alerted72h&updateMask.fieldPaths=createdAt&updateMask.fieldPaths=txHash&updateMask.fieldPaths=chainId`,
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

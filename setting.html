@@ -639,25 +639,23 @@
         const savedAddress = localStorage.getItem('soulsign_wallet_address');
         if (!savedAddress) return;
 
-        // 先从 localStorage 读取（本地缓存）
+        // 优先从 localStorage 读取（mint 时已写入）
         const cachedName = localStorage.getItem('soulsign_guardian_name');
         const cachedEmail = localStorage.getItem('soulsign_guardian_email');
         if (cachedName) nameInput.value = cachedName;
         if (cachedEmail) emailInput.value = cachedEmail;
 
-        // 同时从数据库读取（覆盖本地缓存）
+        // 从 Firestore 同步（只有值存在且非空才覆盖）
         fetch(`${API_BASE}/api/getUser?wallet=${savedAddress}`)
             .then(r => r.json())
             .then(data => {
-                if (data && !data.error) {
-                    if (data.emergencyName) {
-                        nameInput.value = data.emergencyName;
-                        localStorage.setItem('soulsign_guardian_name', data.emergencyName);
-                    }
-                    if (data.emergencyEmail) {
-                        emailInput.value = data.emergencyEmail;
-                        localStorage.setItem('soulsign_guardian_email', data.emergencyEmail);
-                    }
+                if (data && !data.error && data.emergencyName) {
+                    nameInput.value = data.emergencyName;
+                    localStorage.setItem('soulsign_guardian_name', data.emergencyName);
+                }
+                if (data && !data.error && data.emergencyEmail) {
+                    emailInput.value = data.emergencyEmail;
+                    localStorage.setItem('soulsign_guardian_email', data.emergencyEmail);
                 }
             })
             .catch(err => console.error('Load error:', err));
