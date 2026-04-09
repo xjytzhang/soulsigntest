@@ -48,7 +48,7 @@ async function sendEmail(to: string, name: string, wallet: string, lastCheckIn: 
       </div>
       <p style="color: #849396; font-size: 13px; text-align: center; line-height: 1.6;">
         -- SoulSign Protocol<br>
-        <a href="https://soulsign.app" style="color: #c3f5ff;">Visit SoulSign</a>
+        <a href="https://soulsign.xyz" style="color: #c3f5ff;">Visit SoulSign</a>
       </p>
     </div>
   `;
@@ -60,7 +60,7 @@ async function sendEmail(to: string, name: string, wallet: string, lastCheckIn: 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'SoulSign <noreply@soulsign.app>',
+      from: 'SoulSign <noreply@soulsign.xyz>',
       to: [to],
       subject: 'SoulSign - Emergency Guardian Alert',
       html,
