@@ -313,8 +313,9 @@
             from: currentAccount,
             to: CONTRACT_ADDRESS,
             data: mintTxData,
-            gas: '0x1E8480',
-            chainId: chainId,
+            value: '0x0',
+            gasLimit: '0x1E8480',
+            chainId: parseInt(chainId, 16),
           }]
         });
         console.log('[SoulSign] Mint tx sent:', signedTxHash);
@@ -353,8 +354,9 @@
               from: currentAccount,
               to: CONTRACT_ADDRESS,
               data: contactTxData,
-              gas: '0x1E8480',
-              chainId: chainId,
+              value: '0x0',
+              gasLimit: '0x1E8480',
+              chainId: parseInt(chainId, 16),
             }]
           });
           await new Promise(r => setTimeout(r, 2000));
