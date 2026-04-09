@@ -18,28 +18,37 @@ async function sendEmail(to: string, name: string, wallet: string, lastCheckIn: 
     return;
   }
 
+  const userName = name || 'Unknown';
   const html = `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background: #0a0c10; color: #dfe2eb;">
       <div style="text-align: center; margin-bottom: 40px;">
-        <h1 style="color: #c3f5ff; font-size: 28px; margin-bottom: 10px;">Emergency Alert</h1>
-        <p style="color: #69ff87; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">SoulSign Digital Life Guardian</p>
+        <h1 style="color: #c3f5ff; font-size: 28px; margin-bottom: 10px;">SoulSign</h1>
+        <p style="color: #69ff87; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Digital Life Guardian</p>
       </div>
       <div style="background: #12161b; border-radius: 16px; padding: 30px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.06);">
-        <h2 style="color: #ffc687; font-size: 20px; margin-bottom: 20px;">Dear ${name || 'Guardian'},</h2>
+        <p style="color: #dfe2eb; line-height: 1.8; font-size: 15px;">Hello.</p>
         <p style="color: #dfe2eb; line-height: 1.8; font-size: 15px;">
-          Your Guardian has <strong style="color: #ffc687;">not checked in for over 72 hours</strong>.
-          This is an automated alert from SoulSign.
+          Your friend <strong style="color: #ffc687;">${userName}</strong> has designated you as the emergency guardian of the SoulSign protocol. This means that you are one of the most trusted individuals in their digital life plan.
+        </p>
+        <p style="color: #dfe2eb; line-height: 1.8; font-size: 15px;">
+          ${userName} has not shown any "vital signs" (blockchain sign-in) for 72 consecutive hours. Only then will you receive this alert.
+        </p>
+        <p style="color: #dfe2eb; line-height: 1.8; font-size: 15px;">
+          This email is solely for confirming that the communication channel is unobstructed and to inform you of the existence of this trust.
+        </p>
+        <p style="color: #dfe2eb; line-height: 1.8; font-size: 15px;">
+          Thank you for safeguarding its existence in the digital world.
         </p>
       </div>
       <div style="background: #161a1f; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <h3 style="color: #c3f5ff; font-size: 14px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">Guardian Details</h3>
+        <p style="color: #bac9cc; font-size: 14px; margin: 6px 0;"><strong>Guardian:</strong> ${userName}</p>
         <p style="color: #bac9cc; font-size: 14px; margin: 6px 0;"><strong>Wallet:</strong> <code style="background: #0a0c10; padding: 2px 8px; border-radius: 4px; font-family: monospace;">${wallet}</code></p>
         <p style="color: #bac9cc; font-size: 14px; margin: 6px 0;"><strong>Last Check-in:</strong> ${lastCheckIn} (UTC)</p>
         <p style="color: #bac9cc; font-size: 14px; margin: 6px 0;"><strong>Alert Time:</strong> ${new Date().toUTCString()}</p>
       </div>
-      <p style="color: #849396; font-size: 13px; text-align: center;">
-        This is an automated message from SoulSign Protocol.<br>
-        Please check on your Guardian's well-being.
+      <p style="color: #849396; font-size: 13px; text-align: center; line-height: 1.6;">
+        -- SoulSign Protocol<br>
+        <a href="https://soulsign.app" style="color: #c3f5ff;">Visit SoulSign</a>
       </p>
     </div>
   `;
@@ -53,7 +62,7 @@ async function sendEmail(to: string, name: string, wallet: string, lastCheckIn: 
     body: JSON.stringify({
       from: 'SoulSign <noreply@soulsign.app>',
       to: [to],
-      subject: 'Emergency Alert - Guardian Needs Attention',
+      subject: 'SoulSign - Emergency Guardian Alert',
       html,
     }),
   });
@@ -73,7 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('[SoulSign] Running 72h check...');
 
   const now = Date.now();
-  const seventyTwoHoursAgo = now - 72 * 60 * 60 * 1000;
+  const TEST_THRESHOLD_MS = 1 * 60 * 1000; // 测试用 1 分钟，生产改成 72 * 60 * 60 * 1000
+  const seventyTwoHoursAgo = now - TEST_THRESHOLD_MS;
 
   try {
     // 查询 alerted72h = false 的用户
