@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('[SoulSign] Running 72h check...');
 
   const now = Date.now();
-  const TEST_THRESHOLD_MS = 1 * 60 * 1000; // 测试用 1 分钟，生产改成 72 * 60 * 60 * 1000
+  const TEST_THRESHOLD_MS = 72 * 60 * 60 * 1000;
   const seventyTwoHoursAgo = now - TEST_THRESHOLD_MS;
 
   try {
