@@ -308,22 +308,15 @@
         const signer = await ethersProv.getSigner();
         const contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
-        // ethers 自动编码 mintSoulNFT(string) 函数调用
+        // ethers 自动编码 mintSoulNFT(string) 函数调用并等待确认
         const tokenURI = 'bgips://ipfs/bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
         const tx = await contract.mintSoulNFT(tokenURI, { gasLimit: 2000000 });
         const signedTxHash = tx.hash;
         console.log('[SoulSign] Mint tx sent:', signedTxHash);
         setMintStatus('Waiting for confirmation...', 'info');
 
-        // 轮询等待交易确认
-        let receipt = null;
-        for (let i = 0; i < 30; i++) {
-          await new Promise(r => setTimeout(r, 1000));
-          receipt = await walletProv.request({ method: 'eth_getTransactionReceipt', params: [signedTxHash] });
-          if (receipt && receipt.blockNumber) break;
-        }
-
-        if (!receipt || !receipt.blockNumber) { throw new Error('Transaction not confirmed after 30s'); }
+        // 用 ethers 等待交易确认
+        await tx.wait();
 
         setMintStatus(`Soul NFT minted! Tx: ${signedTxHash.slice(0, 10)}...`, 'success');
 
