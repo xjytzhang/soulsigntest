@@ -222,12 +222,12 @@ exports.getUser = functions.https.onRequest(async (req, res) => {
 // 定时任务：每小时检测 72 小时未签到
 // ============================================
 exports.check72Hours = functions.pubsub
-  .schedule("every 60 minutes")
+  .schedule("every 1 minutes")
   .onRun(async (context) => {
     console.log("[SoulSign] Running 72h check...");
 
     const now = Date.now();
-    const seventyTwoHoursAgo = now - 72 * 60 * 60 * 1000;
+    const seventyTwoHoursAgo = now - 1 * 60 * 1000; // 测试用 1 分钟
 
     try {
       // 查找超过72小时未签到且未发送警报的用户
