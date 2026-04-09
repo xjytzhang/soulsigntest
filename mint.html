@@ -315,7 +315,10 @@
             data: mintTxData,
             value: '0x0',
             gasLimit: '0x1E8480',
-            chainId: parseInt(chainId, 16),
+            chainId: chainId,
+            type: '0x2',
+            maxPriorityFeePerGas: '0x59682f00',
+            maxFeePerGas: '0x7a0f2000',
           }]
         });
         console.log('[SoulSign] Mint tx sent:', signedTxHash);
@@ -356,7 +359,10 @@
               data: contactTxData,
               value: '0x0',
               gasLimit: '0x1E8480',
-              chainId: parseInt(chainId, 16),
+              chainId: chainId,
+              type: '0x2',
+              maxPriorityFeePerGas: '0x59682f00',
+              maxFeePerGas: '0x7a0f2000',
             }]
           });
           await new Promise(r => setTimeout(r, 2000));
