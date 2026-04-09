@@ -426,6 +426,23 @@
       updateWalletUI();
       restoreContract(saved);
     }
+    // 页面加载后自动重连钱包（静默，不弹窗）
+    if (savedProviderType) {
+      setTimeout(() => {
+        const prov = savedProviderType === 'okx' ? window.okxwallet
+          : savedProviderType === 'coinbase' ? window.coinbaseWallet
+          : savedProviderType === 'trust' ? window.trustwallet
+          : window.ethereum;
+        if (prov) {
+          prov.request({ method: 'eth_accounts' }).then(accounts => {
+            if (accounts && accounts.length > 0 && accounts[0].toLowerCase() === saved?.toLowerCase()) {
+              walletProvider = prov;
+              console.log('[SoulSign] Wallet auto-reconnected:', accounts[0]);
+            }
+          }).catch(() => {});
+        }
+      }, 500);
+    }
 
     // 从已连接的钱包恢复，用 fetch RPC 不触发任何钱包弹窗
     async function restoreContract(savedAddress) {
