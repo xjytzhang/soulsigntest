@@ -480,8 +480,7 @@ const CONTRACT_ADDRESS = '0xCf5377314489E554Ac11810542070EE54d2C4894';
 const RPC_URL = 'https://sepolia.base.org';
 const SOULSIGN_ABI = [
   "function mintSoulNFT(string calldata tokenURI_) external payable",
-  "function hasSoulNFT(address _user) external view returns (bool)",
-  "function hasSoulNFT() external view returns (bool)",
+  "function hasMinted(address _user) external view returns (bool)",
   "function checkIn() external",
   "function setEmergencyContact(string calldata _name, string calldata _email) external",
   "function getLastCheckIn(address _user) external view returns (uint256)",
@@ -524,7 +523,8 @@ function getWalletProvider(type) {
 // 检查用户是否已 Mint NFT (用 JSON-RPC 避免触发任何钱包弹窗)
 async function checkSoulNFT(address) {
   try {
-    const data = '0x7a6d3b3f' + address.slice(2).toLowerCase().padStart(64, '0');
+    // hasMinted(address) 函数选择器: 4 bytes of keccak256("hasMinted(address)")
+    const data = '0xf2c35d02' + address.slice(2).toLowerCase().padStart(64, '0');
     const result = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -536,12 +536,12 @@ async function checkSoulNFT(address) {
       })
     });
     const json = await result.json();
-    // hasSoulNFT(address) returns uint256 tokenId (0 = not minted)
+    // hasMinted(address) returns bool — ethers parses it as true/false
     const resultHex = json.result;
     if (!resultHex || resultHex === '0x') return false;
-    // 取最后 8 位（uint256 的低 8 hex = tokenId）
-    const tokenId = parseInt(resultHex.slice(-8), 16);
-    return tokenId > 0;
+    // 最后一个字节: 0x01 = true, 0x00 = false
+    const lastByte = parseInt(resultHex.slice(-2), 16);
+    return lastByte === 1;
   } catch (err) {
     console.error('Check NFT error:', err);
     return false;

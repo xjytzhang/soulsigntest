@@ -859,7 +859,7 @@
             hideModal();
             updateUI(addr);
             contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
-            const hasNFT = await contract.hasSoulNFT(addr);
+            const hasNFT = await contract.hasMinted(addr);
             console.log('[SoulSign] hasNFT:', hasNFT);
             if (!hasNFT) { window.location.href = 'mint.html'; return; }
             await loadLastCheckIn();
@@ -887,7 +887,7 @@
                   const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-                  const hasNFT = await contract.hasSoulNFT(accounts[0]);
+                  const hasNFT = await contract.hasMinted(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
                 } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
@@ -926,7 +926,7 @@
                   const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-                  const hasNFT = await contract.hasSoulNFT(accounts[0]);
+                  const hasNFT = await contract.hasMinted(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
                 } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
@@ -962,7 +962,7 @@
                   const prov = new ethers.BrowserProvider(walletProvider);
                   const sig = await prov.getSigner();
                   contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-                  const hasNFT = await contract.hasSoulNFT(accounts[0]);
+                  const hasNFT = await contract.hasMinted(accounts[0]);
                   if (!hasNFT) { window.location.href = 'mint.html'; return; }
                   await loadLastCheckIn();
                 } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
@@ -1024,13 +1024,14 @@
             hideModal();
             updateUI(addr);
             // 用 raw eth_call 检查 NFT，完全不触发 MetaMask
-            const hasSoulNFTFn = '0x' + '7a6d3b3f'.slice(2) + addr.slice(2).padStart(64, '0');
+            // hasMinted(address) 函数选择器: 0xf2c35d02
+            const hasMintedFn = '0xf2c35d02' + addr.slice(2).toLowerCase().padStart(64, '0');
             const hasNFT = await okxProvider.request({
               method: 'eth_call',
-              params: [{ to: CONTRACT_ADDRESS, data: hasSoulNFTFn }, 'latest']
+              params: [{ to: CONTRACT_ADDRESS, data: hasMintedFn }, 'latest']
             });
             const result = parseInt(hasNFT, 16);
-            console.log('[SoulSign] hasNFT raw:', hasNFT, 'parsed:', result);
+            console.log('[SoulSign] hasMinted raw:', hasNFT, 'parsed:', result);
             if (!result) { window.location.href = 'mint.html'; return; }
             // 初始化合约用于后续交易
             if (typeof ethers !== 'undefined') {
@@ -1063,7 +1064,7 @@
               const prov = new ethers.BrowserProvider(walletProvider);
               const sig = await prov.getSigner();
               contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);
-              const hasNFT = await contract.hasSoulNFT(accounts[0]);
+              const hasNFT = await contract.hasMinted(accounts[0]);
               if (!hasNFT) { window.location.href = 'mint.html'; return; }
               await loadLastCheckIn();
             } catch (err) { console.error('[SoulSign] Contract error:', err); showError('Contract error: ' + err.message); }
@@ -1083,10 +1084,12 @@
 
     const SOULSIGN_ABI = [
       "function checkIn() external",
-      "function hasSoulNFT(address _user) external view returns (bool)",
-      "function hasSoulNFT() external view returns (bool)",
+      "function hasMinted(address _user) external view returns (bool)",
       "function getLastCheckIn(address _user) external view returns (uint256)",
-      "event CheckedIn(address indexed user, uint256 timestamp)"
+      "function setEmergencyContact(string calldata _name, string calldata _email) external",
+      "function getEmergencyContact(address _user) external view returns (string memory, string memory)",
+      "event CheckedIn(address indexed user, uint256 timestamp)",
+      "event EmergencyContactSet(address indexed user, string email, string name)"
     ];
 
     let contract = null;
@@ -1108,7 +1111,7 @@
         contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
         // 检测是否有 Soul NFT，没有则跳转 mint 页
-        const hasNFT = await contract.hasSoulNFT(currentWallet);
+        const hasNFT = await contract.hasMinted(currentWallet);
         if (!hasNFT) {
           window.location.href = 'mint.html';
           return;

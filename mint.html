@@ -112,8 +112,7 @@
     // 合约 ABI（只包含我们用到的方法）
     const SOULSIGN_ABI = [
       "function mintSoulNFT(string calldata tokenURI_) external payable",
-      "function hasSoulNFT(address _user) external view returns (bool)",
-      "function hasSoulNFT() external view returns (bool)",
+      "function hasMinted(address _user) external view returns (bool)",
       "function checkIn() external",
       "function setEmergencyContact(string calldata _name, string calldata _email) external",
       "function getLastCheckIn(address _user) external view returns (uint256)",
@@ -233,7 +232,7 @@
     async function checkIfMinted() {
       if (!currentAccount) return;
       try {
-        const hasSoulNFTData = '0x7a6d3b3f' + currentAccount.slice(2).padStart(64, '0');
+        const hasSoulNFTData = '0xf2c35d02' + currentAccount.slice(2).padStart(64, '0');
         const resp = await fetch(BASE_SEPOLIA_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -426,7 +425,7 @@
       if (!savedAddress) return;
       try {
         // hasSoulNFT(address) 函数选择器预计算
-        const hasSoulNFTData = '0x7a6d3b3f' + savedAddress.slice(2).padStart(64, '0');
+        const hasSoulNFTData = '0xf2c35d02' + savedAddress.slice(2).padStart(64, '0');
         const resp = await fetch(BASE_SEPOLIA_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
