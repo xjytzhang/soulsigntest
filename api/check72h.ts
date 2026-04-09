@@ -101,7 +101,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 filters: [
                   { fieldFilter: { field: { fieldPath: 'hasSoulNFT' }, op: 'EQUAL', value: { booleanValue: true } } },
                   { fieldFilter: { field: { fieldPath: 'alerted72h' }, op: 'EQUAL', value: { booleanValue: false } } },
-                  { fieldFilter: { field: { fieldPath: 'emergencyEmail' }, op: 'NOT_EQUAL', value: { stringValue: '' } } },
                 ],
               },
             },
@@ -122,7 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const email = fields.emergencyEmail?.stringValue || '';
       const name = fields.emergencyName?.stringValue || '';
 
-      if (lastCheckInTime > 0 && lastCheckInTime < seventyTwoHoursAgo && email) {
+      if (!email) continue; // skip users without emergency email
+
+      if (lastCheckInTime > 0 && lastCheckInTime < seventyTwoHoursAgo) {
         await sendEmail(email, name, wallet, new Date(lastCheckInTime).toUTCString());
 
         // 更新 alerted72h = true
