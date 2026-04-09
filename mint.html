@@ -148,14 +148,24 @@
     // ============================================
     async function connectWallet() {
       if (typeof ethers === 'undefined') { alert('Ethers.js not loaded. Please refresh.'); return; }
-      if (!window.ethereum) {
-        alert('Please install a compatible wallet first.');
-        return;
-      }
+      if (!window.ethereum) { alert('Please install a compatible wallet first.'); return; }
 
       try {
-        // 使用已保存的 provider（如果有），否则用 window.ethereum
-        const prov = walletProvider || window.ethereum;
+        // 根据保存的钱包类型找到正确的 provider
+        const providerType = localStorage.getItem('soulsign_provider_type');
+        let prov;
+        if (providerType === 'okx') {
+          prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
+        } else if (providerType === 'coinbase') {
+          prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
+        } else if (providerType === 'trust') {
+          prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
+        } else {
+          prov = window.ethereum;
+        }
+
+        if (!prov) { alert('Wallet not found. Please reinstall your wallet.'); return; }
+
         const accounts = await prov.request({ method: 'eth_requestAccounts' });
         if (!accounts || accounts.length === 0) { alert('No accounts returned.'); return; }
         currentAccount = accounts[0];
@@ -165,36 +175,20 @@
         const chainId = await prov.request({ method: 'eth_chainId' });
         if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
           try {
-            await prov.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
-            });
+            await prov.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }] });
           } catch (switchError) {
             if (switchError.code === 4902) {
               await prov.request({
                 method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: BASE_SEPOLIA_CHAIN_ID,
-                  chainName: 'Base Sepolia',
-                  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                  rpcUrls: [BASE_SEPOLIA_RPC],
-                  blockExplorerUrls: ['https://sepolia.basescan.org'],
-                }],
+                params: [{ chainId: BASE_SEPOLIA_CHAIN_ID, chainName: 'Base Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: [BASE_SEPOLIA_RPC], blockExplorerUrls: ['https://sepolia.basescan.org'] }],
               });
             }
           }
         }
 
-        // 保存到 localStorage
         localStorage.setItem(STORAGE_KEY, currentAccount);
-        // 保存钱包类型
-        let providerType = 'metamask';
-        if (prov.isOkxWallet || prov.isOkx || prov.isOkcWallet) providerType = 'okx';
-        else if (prov.isCoinbaseWallet) providerType = 'coinbase';
-        else if (prov.isTrust) providerType = 'trust';
-        localStorage.setItem('soulsign_provider_type', providerType);
+        localStorage.setItem('soulsign_provider_type', providerType || 'metamask');
 
-        // 初始化 ethers.js
         provider = new ethers.BrowserProvider(prov);
         signer = await provider.getSigner();
         contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
@@ -433,26 +427,20 @@
     async function restoreContract(savedAddress) {
       if (typeof ethers === 'undefined' || !savedAddress) return;
       try {
-        // 根据之前保存的钱包类型找到正确的 provider
         const providerType = localStorage.getItem('soulsign_provider_type');
         let prov;
         if (providerType === 'okx') {
-          const okxProvider = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
-          if (!okxProvider) { setMintStatus('Please click wallet button and reconnect OKX.', 'error'); return; }
-          prov = new ethers.BrowserProvider(okxProvider);
+          prov = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
         } else if (providerType === 'coinbase') {
-          const cbProvider = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
-          if (!cbProvider) { setMintStatus('Please click wallet button and reconnect Coinbase.', 'error'); return; }
-          prov = new ethers.BrowserProvider(cbProvider);
+          prov = window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
         } else if (providerType === 'trust') {
-          const trustProvider = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
-          if (!trustProvider) { setMintStatus('Please click wallet button and reconnect Trust.', 'error'); return; }
-          prov = new ethers.BrowserProvider(trustProvider);
+          prov = window.ethereum?.providers?.find(p => p.isTrust) || window.trustwallet;
         } else {
-          // 默认用 window.ethereum
-          prov = new ethers.BrowserProvider(window.ethereum);
+          prov = window.ethereum;
         }
-        const sig = await prov.getSigner();
+        if (!prov) { setMintStatus('Click wallet button above to reconnect your wallet.', 'error'); return; }
+        const bp = new ethers.BrowserProvider(prov);
+        const sig = await bp.getSigner();
         const addr = await sig.getAddress();
         if (addr.toLowerCase() === savedAddress.toLowerCase()) {
           contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, sig);

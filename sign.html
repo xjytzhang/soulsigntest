@@ -1001,27 +1001,42 @@
         }
     });
     async function connectOKX() {
-        if (typeof ethers === 'undefined') { showError('Ethers.js not loaded. Please refresh.'); return; }
         const okxProvider = window.ethereum?.providers?.find(p => p.isOkxWallet || p.isOkx || p.isOkcWallet) || window.okxwallet;
         if (!okxProvider) { showError('OKX Wallet not installed.'); return; }
         try {
             showLoading();
-            walletProvider = okxProvider;
-            const prov = new ethers.BrowserProvider(okxProvider);
-            const signer = await prov.getSigner();
-            const addr = await signer.getAddress();
+            const accounts = await okxProvider.request({ method: 'eth_requestAccounts' });
+            if (!accounts || accounts.length === 0) { showError('No accounts returned.'); return; }
+            const addr = accounts[0];
             const chainId = await okxProvider.request({ method: 'eth_chainId' });
             localStorage.setItem(STORAGE_KEY, addr);
             localStorage.setItem(STORAGE_CHAIN, chainId);
             localStorage.setItem('soulsign_provider_type', 'okx');
             currentWallet = addr;
+            walletProvider = okxProvider;
             console.log('[SoulSign] OKX connected:', addr);
             hideModal();
             updateUI(addr);
-            contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
-            const hasNFT = await contract.hasSoulNFT(addr);
-            if (!hasNFT) { window.location.href = 'mint.html'; return; }
-            await loadLastCheckIn();
+            // 用 raw provider 方式创建合约，不走 ethers signer wrapper
+            if (typeof ethers !== 'undefined') {
+              const prov = new ethers.BrowserProvider(okxProvider);
+              const signer = await prov.getSigner();
+              contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+            }
+            // 同样用 raw provider 调用 hasSoulNFT
+            const hasNFT = await okxProvider.request({
+              method: 'eth_call',
+              params: [{
+                to: CONTRACT_ADDRESS,
+                data: ethers.utils.hexConcat([
+                  ethers.utils.id('hasSoulNFT(address)').slice(0, 10),
+                  '0x' + addr.slice(2).padStart(64, '0')
+                ])
+              }]
+            });
+            const result = hasNFT === '0x0000000000000000000000000000000000000000000000000000000000000001';
+            if (!result) { window.location.href = 'mint.html'; return; }
+            await loadLastCheckInRaw(addr);
         } catch (err) {
             console.error('[SoulSign] OKX connect error:', err);
             showError(err.code === 4001 ? 'User rejected the request.' : (err.message || 'Failed to connect OKX Wallet.'));
@@ -1118,6 +1133,32 @@
           if (hours < 24) {
             statusText.innerText = "Hold to Pulse";
           }
+        }
+      } catch (err) {
+        console.error('[SoulSign] Load checkIn error:', err);
+      }
+    }
+
+    // 直接用 provider.request 调用合约 read 方法
+    async function loadLastCheckInRaw(addr) {
+      if (!addr) return;
+      try {
+        const lastCheckIn = await walletProvider.request({
+          method: 'eth_call',
+          params: [{
+            to: CONTRACT_ADDRESS,
+            data: ethers.utils.hexConcat([
+              ethers.utils.id('getLastCheckIn(address)').slice(0, 10),
+              '0x' + addr.slice(2).padStart(64, '0')
+            ])
+          }]
+        });
+        const lastCheckInNum = parseInt(lastCheckIn, 16);
+        const statusText = document.getElementById('status-text');
+        if (statusText && lastCheckInNum > 0) {
+          const diff = Date.now() - lastCheckInNum * 1000;
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          if (hours < 24) statusText.innerText = "Hold to Pulse";
         }
       } catch (err) {
         console.error('[SoulSign] Load checkIn error:', err);
