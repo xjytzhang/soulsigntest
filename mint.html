@@ -321,32 +321,40 @@
         }
         if (!prov) { throw new Error('Wallet provider not found'); }
 
-        // 用正确的 provider 创建合约来发交易
-        const bp = new ethers.BrowserProvider(prov);
-        const signer = await bp.getSigner();
-        const txContract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+        setMintStatus('Please sign in your wallet...', 'info');
 
+        // 用 ethers 构建交易，但不用 BrowserProvider 发
         const tokenURI = 'ipfs://bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
-        const tx = await txContract.mintSoulNFT(tokenURI);
+        const rpcProv = new ethers.JsonRpcProvider(BASE_SEPOLIA_RPC, 84532);
+        const txContract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, rpcProv);
+        const unsignedTx = await txContract.mintSoulNFT.populateTransaction(tokenURI);
+        const gasLimit = await txContract.mintSoulNFT.estimateGas({ from: currentAccount });
 
+        // 让钱包直接签名并发送
+        const signedTxHash = await prov.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: currentAccount,
+            to: unsignedTx.to,
+            data: unsignedTx.data,
+            gasLimit: ethers.toBeHex(gasLimit),
+            chainId: unsignedTx.chainId,
+          }]
+        });
+        console.log('[SoulSign] Mint tx sent:', signedTxHash);
         setMintStatus('Waiting for confirmation...', 'info');
 
-        const receipt = await tx.wait();
-        console.log('Mint transaction:', receipt);
+        // 轮询等待交易确认
+        let receipt = null;
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          receipt = await rpcProv.getTransactionReceipt(signedTxHash);
+          if (receipt) break;
+        }
 
-        // 获取 tokenId 从事件中
-        const soulMintedEvent = receipt.logs.find(log => {
-          try {
-            const parsed = txContract.interface.parseLog(log);
-            return parsed?.name === 'SoulMinted';
-          } catch { return false; }
-        });
+        if (!receipt) { throw new Error('Transaction not confirmed after 30s'); }
 
-        const tokenId = soulMintedEvent
-          ? txContract.interface.parseLog(soulMintedEvent).args.tokenId.toString()
-          : 'unknown';
-
-        setMintStatus(`Soul NFT minted! Token #${tokenId}`, 'success');
+        setMintStatus(`Soul NFT minted! Tx: ${signedTxHash.slice(0, 10)}...`, 'success');
 
         // 保存到 Firebase
         await fetch(`${API_BASE}/api/register`, {
@@ -354,20 +362,32 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wallet: currentAccount,
-            txHash: receipt.hash,
+            txHash: signedTxHash,
             chainId: 84532,
           }),
         }).catch(err => console.error('Firebase register error:', err));
 
-        // 设置紧急联系人到合约
+        // 设置紧急联系人
         try {
           setMintStatus('Setting emergency contact...', 'info');
-          await txContract.setEmergencyContact(username, guardianEmail);
+          const contactUnsignedTx = await txContract.setEmergencyContact.populateTransaction(username, guardianEmail);
+          const contactGasLimit = await txContract.setEmergencyContact.estimateGas({ from: currentAccount });
+          await prov.request({
+            method: 'eth_sendTransaction',
+            params: [{
+              from: currentAccount,
+              to: contactUnsignedTx.to,
+              data: contactUnsignedTx.data,
+              gasLimit: ethers.toBeHex(contactGasLimit),
+              chainId: contactUnsignedTx.chainId,
+            }]
+          });
+          await new Promise(r => setTimeout(r, 2000));
         } catch (e) {
           console.error('Set emergency contact error:', e);
         }
 
-        // 也保存到 Firebase
+        // 保存到 Firebase
         await fetch(`${API_BASE}/api/setEmergencyContact`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
