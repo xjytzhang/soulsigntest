@@ -34,7 +34,7 @@ exports.register = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const { wallet, txHash, chainId } = req.body;
+    const { wallet, txHash, chainId, emergencyName, emergencyEmail } = req.body;
 
     if (!wallet) {
       return res.status(400).json({ error: "wallet is required" });
@@ -48,8 +48,8 @@ exports.register = functions.https.onRequest(async (req, res) => {
         wallet: walletLower,
         hasSoulNFT: true,
         lastCheckIn: now,
-        emergencyEmail: "",
-        emergencyName: "",
+        emergencyEmail: emergencyEmail || "",
+        emergencyName: emergencyName || "",
         alerted72h: false,
         createdAt: now,
         txHash: txHash || "",

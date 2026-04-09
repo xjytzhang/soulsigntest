@@ -320,7 +320,7 @@ const result = parseInt(hex === '0x' ? '0' : hex, 16);
 
         setMintStatus(`Soul NFT minted! Tx: ${signedTxHash.slice(0, 10)}...`, 'success');
 
-        // 保存到 Firebase
+        // 保存到 Firebase（同时保存紧急联系人信息）
         await fetch(`${API_BASE}/api/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -328,6 +328,8 @@ const result = parseInt(hex === '0x' ? '0' : hex, 16);
             wallet: currentAccount,
             txHash: signedTxHash,
             chainId: 84532,
+            emergencyName: username,
+            emergencyEmail: guardianEmail,
           }),
         }).catch(err => console.error('Firebase register error:', err));
 

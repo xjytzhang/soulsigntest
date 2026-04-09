@@ -556,57 +556,82 @@
             return;
         }
 
-        // 签名验证身份
-        if (!window.ethereum) {
+        // 用正确钱包 provider
+        const providerType = localStorage.getItem('soulsign_provider_type') || 'metamask';
+        const rawProv = providerType === 'okx' ? window.okxwallet
+          : providerType === 'coinbase' ? window.coinbaseWallet
+          : providerType === 'trust' ? window.trustwallet
+          : window.ethereum;
+        if (!rawProv) {
             hideSignatureAnimation();
             showError('No wallet found');
             return;
         }
 
+        // 确保 contract 已初始化
+        if (!contract) {
+            // 立即初始化
+            const ethersProv = new ethers.BrowserProvider(rawProv);
+            ethersProv.getSigner().then(signer => {
+                contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
+                sendCheckInTx(rawProv, wallet);
+            }).catch(() => {
+                hideSignatureAnimation();
+                showError('Wallet not authorized');
+            });
+            return;
+        }
+
+        sendCheckInTx(rawProv, wallet);
+    }
+
+    async function sendCheckInTx(rawProv, wallet) {
         const now = new Date();
         const msg = `SoulSign Check-In\nDate: ${now.toISOString()}\nWallet: ${wallet}`;
 
-        window.ethereum.request({ method: 'eth_requestAccounts' })
-            .then(accounts => {
-                if (!accounts || !accounts[0]) throw new Error('No account');
-                return window.ethereum.request({
-                    method: 'personal_sign',
-                    params: [msg, accounts[0]],
-                });
-            })
-            .then(signature => {
-                // 签名成功，发送到数据库
-                return fetch(`${window.API_BASE}/api/checkin`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet, signature, timestamp: Date.now() }),
-                }).then(r => r.json()).catch(() => ({}));
-            })
-            .then(() => {
-                // 更新本地状态
-                localStorage.setItem('soulsign_checkin_today', now.toISOString());
+        try {
+            // 用 eth_accounts 检查是否已授权（不弹窗），不授权则用 eth_requestAccounts
+            let accounts = [];
+            try {
+                accounts = await rawProv.request({ method: 'eth_accounts' });
+            } catch (e) {}
+            if (!accounts || !accounts[0]) {
+                accounts = await rawProv.request({ method: 'eth_requestAccounts' });
+            }
+            if (!accounts || !accounts[0]) throw new Error('No account');
 
-                // 更新streak
-                let streak = parseInt(localStorage.getItem('soulsign_streak') || '0');
-                localStorage.setItem('soulsign_streak', (streak + 1).toString());
-
-                hideSignatureAnimation();
-                window.signingInProgress = false;
-                showSuccessEffects();
-            })
-            .catch(err => {
-                hideSignatureAnimation();
-                window.signingInProgress = false;
-                console.error('[SoulSign] CheckIn error:', err);
-                if (err.code !== '4001') {
-                    // 即使失败也本地记录（演示用）
-                    const now = new Date();
-                    localStorage.setItem('soulsign_checkin_today', now.toISOString());
-                    let streak = parseInt(localStorage.getItem('soulsign_streak') || '0');
-                    localStorage.setItem('soulsign_streak', (streak + 1).toString());
-                    showSuccessEffects();
-                }
+            // 用 personal_sign 签名验证身份
+            const signature = await rawProv.request({
+                method: 'personal_sign',
+                params: [msg, accounts[0]],
             });
+
+            // 签名成功，发送到数据库
+            await fetch(`${window.API_BASE}/api/checkin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet, signature, timestamp: Date.now() }),
+            });
+
+            // 更新本地状态
+            localStorage.setItem('soulsign_checkin_today', now.toISOString());
+            let streak = parseInt(localStorage.getItem('soulsign_streak') || '0');
+            localStorage.setItem('soulsign_streak', (streak + 1).toString());
+
+            hideSignatureAnimation();
+            window.signingInProgress = false;
+            showSuccessEffects();
+        } catch (err) {
+            hideSignatureAnimation();
+            window.signingInProgress = false;
+            console.error('[SoulSign] CheckIn error:', err);
+            // 只有用户主动拒绝才不显示错误
+            if (err.code === 4001) {
+                showError('Check-in cancelled');
+            } else {
+                showError(err.message || 'Check-in failed');
+            }
+        }
     }
 
     function showSuccessEffects() {
@@ -1104,7 +1129,11 @@
     });
 
     async function initContract() {
-      const prov = walletProvider || window.ethereum;
+      const providerType = localStorage.getItem('soulsign_provider_type') || 'metamask';
+      const prov = providerType === 'okx' ? window.okxwallet
+        : providerType === 'coinbase' ? window.coinbaseWallet
+        : providerType === 'trust' ? window.trustwallet
+        : window.ethereum;
       if (!prov || !currentWallet) return;
       try {
         const provider = new ethers.BrowserProvider(prov);
