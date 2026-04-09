@@ -5,6 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SoulSign | Mint Your Digital Sanctuary</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -301,26 +302,16 @@
 
         setMintStatus('Please sign in your wallet...', 'info');
 
-        const chainId = await prov.request({ method: 'eth_chainId' });
-        const walletProv = walletProvider || prov;
+        // 用 ethers.BrowserProvider(okxwallet) 让 ethers 帮忙正确编码交易
+        // 传 window.okxwallet 不会触发 MetaMask，因为 ethers 会用这个 provider
+        const ethersProv = new ethers.BrowserProvider(prov);
+        const signer = await ethersProv.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, signer);
 
-        // 预计算的 mintSoulNFT(string) 编码
-        const mintTxData = '0x7ada6fcc0000000000000000000000000000000000000000000000000000000000000042697066733a2f2f6261667962656968716a72747966746e6e716f33737035706262793668707973353677746174646e7666716137756e743362677233633767676d6d000000000000000000000000000000000000000000000000000000000000';
-
-        const signedTxHash = await walletProv.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: currentAccount,
-            to: CONTRACT_ADDRESS,
-            data: mintTxData,
-            value: '0x0',
-            gasLimit: '0x1E8480',
-            chainId: chainId,
-            type: '0x2',
-            maxPriorityFeePerGas: '0x59682f00',
-            maxFeePerGas: '0x7a0f2000',
-          }]
-        });
+        // ethers 自动编码 mintSoulNFT(string) 函数调用
+        const tokenURI = 'bgips://ipfs/bafybeihqjrtyftnnqo3sp5pbby6hpys56wtatdnvfqa7unt3bgr3c7ggmm';
+        const tx = await contract.mintSoulNFT(tokenURI, { gasLimit: 2000000 });
+        const signedTxHash = tx.hash;
         console.log('[SoulSign] Mint tx sent:', signedTxHash);
         setMintStatus('Waiting for confirmation...', 'info');
 
@@ -350,22 +341,8 @@
         // 设置紧急联系人（预计算的 ABI 编码）
         try {
           setMintStatus('Setting emergency contact...', 'info');
-          const contactTxData = '0x7da8902f00000000000000000000000000000000000000000000000000000000000000087465737475736572000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001074657374406578616d706c652e636f6d00000000000000000000000000000000';
-          await walletProv.request({
-            method: 'eth_sendTransaction',
-            params: [{
-              from: currentAccount,
-              to: CONTRACT_ADDRESS,
-              data: contactTxData,
-              value: '0x0',
-              gasLimit: '0x1E8480',
-              chainId: chainId,
-              type: '0x2',
-              maxPriorityFeePerGas: '0x59682f00',
-              maxFeePerGas: '0x7a0f2000',
-            }]
-          });
-          await new Promise(r => setTimeout(r, 2000));
+          const contactTx = await contract.setEmergencyContact(username, guardianEmail, { gasLimit: 2000000 });
+          await contactTx.wait();
         } catch (e) {
           console.error('Set emergency contact error:', e);
         }
