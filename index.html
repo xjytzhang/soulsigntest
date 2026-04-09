@@ -475,7 +475,9 @@ Try Again
 // Wallet Connect Logic
 const STORAGE_KEY = 'soulsign_wallet_address';
 const STORAGE_CHAIN = 'soulsign_chain_id';
+const STORAGE_PROVIDER = 'soulsign_provider_type';
 const CONTRACT_ADDRESS = '0xCf5377314489E554Ac11810542070EE54d2C4894';
+const RPC_URL = 'https://sepolia.base.org';
 const SOULSIGN_ABI = [
   "function mintSoulNFT(string calldata tokenURI_) external payable",
   "function hasSoulNFT(address _user) external view returns (bool)",
@@ -508,13 +510,35 @@ const retryBtn = document.getElementById('wallet-retry-btn');
 let currentProvider = null;
 let currentAccount = null;
 
-// 检查用户是否已 Mint NFT
+// 获取正确钱包 provider
+function getWalletProvider(type) {
+  switch (type) {
+    case 'okx': return window.okxwallet;
+    case 'trust': return window.trustwallet || window.ethereum?.providers?.find(p => p.isTrust);
+    case 'coinbase': return window.ethereum?.providers?.find(p => p.isCoinbaseWallet) || window.coinbaseWallet;
+    case 'metamask': return window.ethereum;
+    default: return null;
+  }
+}
+
+// 检查用户是否已 Mint NFT (用 JSON-RPC 避免触发任何钱包弹窗)
 async function checkSoulNFT(address) {
   try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, SOULSIGN_ABI, provider);
-    const hasNFT = await contract.hasSoulNFT(address);
-    return hasNFT;
+    const data = '0x7a6d3b3f' + address.slice(2).toLowerCase().padStart(64, '0');
+    const result = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_call',
+        params: [{ to: CONTRACT_ADDRESS, data }, 'latest'],
+        id: 1
+      })
+    });
+    const json = await result.json();
+    // 返回值非零地址说明已 Mint
+    const addr = json.result;
+    return addr && addr !== '0x' + '0'.repeat(64);
   } catch (err) {
     console.error('Check NFT error:', err);
     return false;
@@ -522,9 +546,12 @@ async function checkSoulNFT(address) {
 }
 
 // 连接钱包后检测并跳转
-async function handleWalletConnected(account) {
+async function handleWalletConnected(account, providerType) {
   localStorage.setItem(STORAGE_KEY, account);
-  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+  localStorage.setItem(STORAGE_PROVIDER, providerType || 'metamask');
+  // 用正确 provider 获取 chainId
+  const prov = getWalletProvider(providerType) || window.ethereum;
+  const chainId = await prov.request({ method: 'eth_chainId' });
   localStorage.setItem(STORAGE_CHAIN, chainId);
   currentAccount = account;
   updateUI(account);
@@ -593,7 +620,7 @@ async function connectMetaMask() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
             hideModal();
-            await handleWalletConnected(accounts[0]);
+            await handleWalletConnected(accounts[0], 'metamask');
         }
     } catch (err) {
         if (err.code === 4001) {
@@ -615,7 +642,7 @@ async function connectCoinbase() {
         const accounts = await coinbase.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
             hideModal();
-            await handleWalletConnected(accounts[0]);
+            await handleWalletConnected(accounts[0], 'coinbase');
         }
     } catch (err) {
         if (err.code === 4001) {
@@ -646,8 +673,9 @@ async function connectWalletConnect() {
         if (accounts && accounts.length > 0) {
             localStorage.setItem(STORAGE_KEY, accounts[0]);
             localStorage.setItem(STORAGE_CHAIN, provider.chainId.toString());
+            localStorage.setItem(STORAGE_PROVIDER, 'walletconnect');
             currentAccount = accounts[0];
-            await handleWalletConnected(accounts[0]);
+            await handleWalletConnected(accounts[0], 'walletconnect');
         }
     } catch (err) {
         modal.classList.remove('hidden');
@@ -664,6 +692,7 @@ async function connectWalletConnect() {
 function disconnectWallet() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_CHAIN);
+    localStorage.removeItem(STORAGE_PROVIDER);
     currentAccount = null;
     updateUI(null);
 }
@@ -688,9 +717,12 @@ document.querySelectorAll('.wallet-option').forEach(btn => {
 // Auto-connect on page load
 document.addEventListener('DOMContentLoaded', async () => {
     const savedAddress = localStorage.getItem(STORAGE_KEY);
-    if (savedAddress && window.ethereum) {
+    const savedProvider = localStorage.getItem(STORAGE_PROVIDER);
+    if (savedAddress) {
         try {
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            // 用正确的 provider 检查已连接账户
+            const prov = getWalletProvider(savedProvider) || window.ethereum;
+            const accounts = await prov.request({ method: 'eth_accounts' });
             if (accounts && accounts[0]?.toLowerCase() === savedAddress.toLowerCase()) {
                 currentAccount = accounts[0];
                 updateUI(accounts[0]);
@@ -719,7 +751,7 @@ async function connectOKX() {
         const accounts = await okxProvider.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
             hideModal();
-            await handleWalletConnected(accounts[0]);
+            await handleWalletConnected(accounts[0], 'okx');
         }
     } catch (err) {
         if (err.code === 4001) { showError('User rejected the request.'); }
@@ -736,7 +768,7 @@ async function connectTrust() {
         const accounts = await trustProvider.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
             hideModal();
-            await handleWalletConnected(accounts[0]);
+            await handleWalletConnected(accounts[0], 'trust');
         }
     } catch (err) {
         if (err.code === 4001) { showError('User rejected the request.'); }
