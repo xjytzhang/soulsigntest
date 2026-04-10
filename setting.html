@@ -577,7 +577,7 @@
 
     // SoulSign 紧急联系人设置
     const API_BASE = 'https://soulsign.xyz';
-    const CONTRACT_ADDRESS = '0xCf5377314489E554Ac11810542070EE54d2C4894';
+    const CONTRACT_ADDRESS = '0x58bD9447fB025e4cCcbEDCd049814493453a5867';
     const SOULSIGN_ABI = [
       "function mintSoulNFT(string calldata tokenURI_) external payable",
       "function hasMinted(address _user) external view returns (bool)",
@@ -594,10 +594,10 @@
       try {
         // 用 ERC721 balanceOf(address) - 链上验证有效
         const data = '0x70a08231' + address.slice(2).toLowerCase().padStart(64, '0');
-        const resp = await fetch('https://sepolia.base.org', {
+        const resp = await fetch('https://mainnet.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_call', params: [{ to: '0xCf5377314489E554Ac11810542070EE54d2C4894', data }, 'latest'], id: 1 })
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_call', params: [{ to: '0x58bD9447fB025e4cCcbEDCd049814493453a5867', data }, 'latest'], id: 1 })
         });
         const json = await resp.json();
         const hex = (json.result || '0x').replace(/^0x0+/, '0x');

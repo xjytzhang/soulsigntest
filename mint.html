@@ -104,10 +104,10 @@
     // ============================================
 
     // 合约地址（部署后填写）
-    const CONTRACT_ADDRESS = '0xCf5377314489E554Ac11810542070EE54d2C4894';
+    const CONTRACT_ADDRESS = '0x58bD9447fB025e4cCcbEDCd049814493453a5867';
     // Base Sepolia Chain ID
-    const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532 in hex
-    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+    const BASE_SEPOLIA_CHAIN_ID = '0x20d3'; // 8453 mainnet
+    const BASE_SEPOLIA_RPC = 'https://mainnet.base.org';
 
     // 合约 ABI（只包含我们用到的方法）
     const SOULSIGN_ABI = [
@@ -173,7 +173,7 @@
             await prov.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }] });
           } catch (e) {
             if (e.code === 4902) {
-              await prov.request({ method: 'wallet_addEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID, chainName: 'Base Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: [BASE_SEPOLIA_RPC], blockExplorerUrls: ['https://sepolia.basescan.org'] }] });
+              await prov.request({ method: 'wallet_addEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID, chainName: 'Base', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: [BASE_SEPOLIA_RPC], blockExplorerUrls: ['https://basescan.org'] }] });
             }
           }
         }
@@ -327,7 +327,7 @@ const result = parseInt(hex === '0x' ? '0' : hex, 16);
           body: JSON.stringify({
             wallet: currentAccount,
             txHash: signedTxHash,
-            chainId: 84532,
+            chainId: 8453,
             emergencyName: username,
             emergencyEmail: guardianEmail,
           }),
